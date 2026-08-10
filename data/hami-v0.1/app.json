@@ -1,0 +1,14 @@
+{
+  "expo": {
+    "name": "HAMI",
+    "slug": "hami-family",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "hami",
+    "userInterfaceStyle": "light",
+    "web": { "bundler": "metro" },
+    "plugins": ["expo-router"],
+    "experiments": { "typedRoutes": true },
+    "ios": { "supportsTablet": true, "bundleIdentifier": "family.chansiagian.hami" }
+  }
+}
