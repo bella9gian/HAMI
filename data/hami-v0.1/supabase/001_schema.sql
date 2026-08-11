@@ -61,8 +61,12 @@ create table if not exists public.chores (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references public.households(id) on delete cascade,
   title text not null,
+  notes text,
+  room text,
   recurrence_rule text,
-  active boolean not null default true,
+  next_due_at timestamptz,
+  is_active boolean not null default true,
+  created_by uuid references public.family_members(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -77,7 +81,8 @@ create table if not exists public.chore_completions (
   id uuid primary key default gen_random_uuid(),
   chore_id uuid not null references public.chores(id) on delete cascade,
   completed_by uuid references public.family_members(id) on delete set null,
-  completed_at timestamptz not null default now()
+  completed_at timestamptz not null default now(),
+  notes text
 );
 
 create table if not exists public.trips (
