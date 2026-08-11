@@ -2,43 +2,35 @@
 
 **Our Life · Our Home · Our Story**
 
-A private Chan–Siagian family app built as a universal Expo/React Native + TypeScript project, with Supabase as the intended backend.
+HAMI is a private Chan–Siagian family app built with Expo, React Native, TypeScript, and Supabase. It targets iPhone and web through Expo Router.
 
-## Included now
+## Current state
 
-- HAMI visual system and responsive screen shell
-- Bottom navigation: Today, Calendar, To-Do, Chores, More
-- Assignable mock data for Calendar, To-Do and Chores
-- More modules: Trips, Recipes, Photos, Habits, Supplements, Skincare, Makeup, Household
-- Supabase client placeholder (`lib/supabase.ts`)
-- Initial Postgres/RLS schema draft (`supabase/001_schema.sql`)
+- HAMI visual system, responsive screen shell, and bottom navigation: Today, Calendar, To-Do, Chores, and More.
+- Supabase Auth is live. The Today screen supports sign-in and sign-out with the configured Supabase project.
+- Today loads the authenticated user's `family_members` record and active members of their household from Supabase.
+- The Today calendar, Calendar, To-Do, and Chores content remains mock data while their live queries and CRUD flows are built.
+- Trips, Recipes, Photos, Habits, Supplements, Skincare, Makeup, and Household are navigation-ready placeholders.
+- `supabase/001_schema.sql` records the current family-member-based database model, RLS policies, and `updated_at` triggers. It is a reference migration only; do not run it against an existing project without reviewing it first.
 
 ## Run locally
 
-The source targets current Expo. The safest bootstrap is to install dependencies with Expo's current tooling:
-
 ```bash
 npm install
-npx expo install --fix
+npm run typecheck
 npx expo start
 ```
 
-Then use Expo Go on iPhone or press `w` for web.
+Use Expo Go on iPhone or press `w` for web.
 
-> `package.json` deliberately uses `latest` for several Expo-managed packages because Expo's compatibility matrix changes by SDK. `npx expo install --fix` resolves versions compatible with your installed SDK.
+## Supabase configuration
 
-## Supabase
-
-Copy `.env.example` to `.env` and add your **Project URL** and **publishable/anon key**. Do **not** put the Supabase service-role key in a mobile or web client.
-
-The UI currently uses mock data so HAMI can be designed and tested before touching your live database.
+Copy `.env.example` to `.env` and set the Project URL plus publishable/anon key. The `.env` file is gitignored. Never place a Supabase service-role key in a mobile or web client.
 
 ## Next build milestone
 
-1. Family sign-in / household creation
-2. Real family profiles and avatar picker
-3. Calendar CRUD + assignments
-4. To-Do CRUD + assignments
-5. Chore recurrence + assignments + completion history
-6. Trip model + assignable trip tasks
-7. Then recipes/photos/habits/supplements/skincare/makeup/household
+1. Live calendar queries, CRUD, and assignments
+2. Live To-Do queries, CRUD, and assignments
+3. Chore recurrence, assignments, and completion history
+4. Trip views and assignable trip tasks
+5. Recipes, photos, habits, supplements, skincare, makeup, and household
