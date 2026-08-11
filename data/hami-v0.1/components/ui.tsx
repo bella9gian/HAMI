@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, shadow } from '@/constants/theme';
-import { members } from '@/data/mock';
 
 export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
   return <View style={styles.header}><Text style={styles.title}>{title}</Text><View>{right}</View></View>;
@@ -14,9 +13,9 @@ export function Card({ children, style }: { children: ReactNode; style?: any }) 
 
 export function MemberChips({ ids, memberOptions }: { ids: string[]; memberOptions?: Array<{ id: string; display_name?: string; name?: string; initials?: string }> }) {
   return <View style={styles.chips}>{ids.slice(0,3).map((id) => {
-    const member = memberOptions?.find(m => m.id === id) ?? members.find(m => m.id === id) ?? members[0];
-    const displayName = 'display_name' in member ? member.display_name : undefined;
-    const initials = member.initials ?? (displayName ?? member.name ?? '?').charAt(0).toUpperCase();
+    const member = memberOptions?.find(m => m.id === id);
+    const displayName = member?.display_name ?? member?.name ?? '?';
+    const initials = member?.initials ?? displayName.split(/\s+/).map((part) => part.charAt(0)).join('').slice(0, 2).toUpperCase();
     return <View key={id} style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>;
   })}</View>;
 }
