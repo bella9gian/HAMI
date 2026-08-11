@@ -12,9 +12,10 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
+    // Static Expo web rendering runs in Node, where AsyncStorage has no window.
+    storage: typeof window === 'undefined' ? undefined : AsyncStorage,
+    autoRefreshToken: typeof window !== 'undefined',
+    persistSession: typeof window !== 'undefined',
     detectSessionInUrl: false,
   },
 });

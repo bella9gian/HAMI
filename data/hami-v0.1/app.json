@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "hami",
     "userInterfaceStyle": "light",
-    "web": { "bundler": "metro" },
+    "web": { "bundler": "metro", "output": "static" },
     "plugins": ["expo-router"],
     "experiments": { "typedRoutes": true },
     "ios": { "supportsTablet": true, "bundleIdentifier": "family.chansiagian.hami" }
