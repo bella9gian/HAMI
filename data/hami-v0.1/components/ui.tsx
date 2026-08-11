@@ -12,10 +12,12 @@ export function Card({ children, style }: { children: ReactNode; style?: any }) 
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
-export function MemberChips({ ids }: { ids: string[] }) {
+export function MemberChips({ ids, memberOptions }: { ids: string[]; memberOptions?: Array<{ id: string; display_name?: string; name?: string; initials?: string }> }) {
   return <View style={styles.chips}>{ids.slice(0,3).map((id) => {
-    const member = members.find(m => m.id === id) ?? members[0];
-    return <View key={id} style={styles.avatar}><Text style={styles.avatarText}>{member.initials}</Text></View>;
+    const member = memberOptions?.find(m => m.id === id) ?? members.find(m => m.id === id) ?? members[0];
+    const displayName = 'display_name' in member ? member.display_name : undefined;
+    const initials = member.initials ?? (displayName ?? member.name ?? '?').charAt(0).toUpperCase();
+    return <View key={id} style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>;
   })}</View>;
 }
 

@@ -17,16 +17,8 @@ import {
   SectionTitle,
 } from '@/components/ui';
 import { colors } from '@/constants/theme';
-import { todayEvents } from '@/data/mock';
+import { CalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, subscribeToCalendarChanges, toDateKey } from '@/lib/calendar';
 import { supabase } from '@/lib/supabase';
-
-type FamilyMember = {
-  id: string;
-  display_name: string;
-  first_name: string | null;
-  relationship: string | null;
-  user_id: string | null;
-};
 
 export default function Today() {
   const [loading, setLoading] = useState(true);
@@ -37,6 +29,8 @@ export default function Today() {
 
   const [error, setError] = useState('');
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
+  const [calendarError, setCalendarError] = useState('');
   const [currentMember, setCurrentMember] =
     useState<FamilyMember | null>(null);
 
@@ -59,6 +53,10 @@ export default function Today() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => subscribeToCalendarChanges(() => {
+    void loadEventsForDate(toDateKey()).then(setTodayEvents).catch((err: any) => setCalendarError(err?.message ?? 'Unable to load today\'s calendar.'));
+  }), []);
 
   async function checkSession() {
     setLoading(true);
@@ -134,6 +132,12 @@ export default function Today() {
 
       setCurrentMember(me);
       setMembers(family ?? []);
+      try {
+        setCalendarError('');
+        setTodayEvents(await loadEventsForDate(toDateKey()));
+      } catch (calendarLoadError: any) {
+        setCalendarError(calendarLoadError?.message ?? 'Unable to load today\'s calendar.');
+      }
     } catch (err: any) {
       setError(err?.message ?? 'Unable to load HAMI household.');
     } finally {
@@ -255,12 +259,9 @@ export default function Today() {
         ))}
       </Card>
 
-      <SectionTitle
-        title="Today · Monday, Aug 10"
-        action="Calendar"
-      />
+      <SectionTitle title={`Today · ${new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}`} action="Calendar" />
 
-      <Card>
+      {calendarError ? <Card><Text style={s.error}>{calendarError}</Text></Card> : todayEvents.length === 0 ? <Card><Text style={s.meta}>Nothing on the calendar today.</Text></Card> : <Card>
         {todayEvents.map((e, i) => (
           <View
             key={e.id}
@@ -272,12 +273,12 @@ export default function Today() {
             <View
               style={[
                 s.bar,
-                { backgroundColor: e.color },
+                { backgroundColor: ['#D98D62', '#8BAEBB', '#94A783'][i % 3] },
               ]}
             />
 
             <View style={s.time}>
-              <Text style={s.timeText}>{e.start}</Text>
+              <Text style={s.timeText}>{formatEventTime(e)}</Text>
             </View>
 
             <View style={{ flex: 1 }}>
@@ -285,10 +286,10 @@ export default function Today() {
               <Text style={s.meta}>{e.location}</Text>
             </View>
 
-            <MemberChips ids={e.memberIds} />
+            <MemberChips ids={e.assignees.map((member) => member.id)} memberOptions={e.assignees} />
           </View>
         ))}
-      </Card>
+      </Card>}
 
       <SectionTitle title="Quick add" />
 
