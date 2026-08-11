@@ -20,6 +20,7 @@ import { colors } from '@/constants/theme';
 import { CalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, subscribeToCalendarChanges, toDateKey } from '@/lib/calendar';
 import { supabase } from '@/lib/supabase';
 import { loadTodos, subscribeToTodoChanges, Todo } from '@/lib/todos';
+import { Chore, loadChores, subscribeToChoreChanges } from '@/lib/chores';
 
 export default function Today() {
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function Today() {
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
   const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
+  const [dueChores, setDueChores] = useState<Chore[]>([]);
   const [calendarError, setCalendarError] = useState('');
   const [currentMember, setCurrentMember] =
     useState<FamilyMember | null>(null);
@@ -68,6 +70,12 @@ export default function Today() {
       const today = toDateKey();
       setTodayTodos(todos.filter((todo) => !todo.completed && (!todo.dueAt || toDateKey(new Date(todo.dueAt)) <= today)));
     } catch (err: any) { setCalendarError(err?.message ?? 'Unable to load today\'s tasks.'); }
+  }
+
+  useEffect(() => subscribeToChoreChanges(() => { void loadDueChores(); }), []);
+  async function loadDueChores() {
+    try { const chores = await loadChores(); const now = new Date(); setDueChores(chores.filter((chore) => chore.isActive && !chore.completed && !!chore.nextDueAt && new Date(chore.nextDueAt) <= now)); }
+    catch (err: any) { setCalendarError(err?.message ?? 'Unable to load due chores.'); }
   }
 
   async function checkSession() {
@@ -148,6 +156,7 @@ export default function Today() {
         setCalendarError('');
         setTodayEvents(await loadEventsForDate(toDateKey()));
         await loadTodayTodos();
+        await loadDueChores();
       } catch (calendarLoadError: any) {
         setCalendarError(calendarLoadError?.message ?? 'Unable to load today\'s calendar.');
       }
@@ -315,6 +324,9 @@ export default function Today() {
         ))}
       </Card>
 
+      <SectionTitle title="Due chores" action={`${dueChores.length} due`} />
+      <Card>{dueChores.length === 0 ? <Text style={s.meta}>No chores due right now.</Text> : dueChores.slice(0, 4).map((chore, index) => <View key={chore.id} style={[s.todoRow, index < Math.min(dueChores.length, 4) - 1 && s.sep]}><Ionicons name="brush-outline" size={20} color={colors.clay}/><View style={{flex:1}}><Text style={s.eventTitle}>{chore.title}</Text><Text style={s.meta}>{chore.room || 'Around the house'}</Text></View><MemberChips ids={chore.assignees.map(member => member.id)} memberOptions={chore.assignees}/></View>)}</Card>
+
       <SectionTitle title="Quick add" />
 
       <View style={s.quickRow}>
@@ -352,8 +364,8 @@ export default function Today() {
 
         <Card style={s.mini}>
           <Text style={s.miniEyebrow}>HOME</Text>
-          <Text style={s.miniTitle}>3 chores due</Text>
-          <Text style={s.meta}>2 assigned to you</Text>
+          <Text style={s.miniTitle}>{dueChores.length} chores due</Text>
+          <Text style={s.meta}>{dueChores.filter(chore => chore.assignees.some(member => member.id === currentMember?.id)).length} assigned to you</Text>
           <Ionicons
             name="home-outline"
             size={24}
