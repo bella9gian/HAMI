@@ -19,6 +19,7 @@ import {
 import { colors } from '@/constants/theme';
 import { CalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, subscribeToCalendarChanges, toDateKey } from '@/lib/calendar';
 import { supabase } from '@/lib/supabase';
+import { loadTodos, subscribeToTodoChanges, Todo } from '@/lib/todos';
 
 export default function Today() {
   const [loading, setLoading] = useState(true);
@@ -30,6 +31,7 @@ export default function Today() {
   const [error, setError] = useState('');
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
+  const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [calendarError, setCalendarError] = useState('');
   const [currentMember, setCurrentMember] =
     useState<FamilyMember | null>(null);
@@ -57,6 +59,16 @@ export default function Today() {
   useEffect(() => subscribeToCalendarChanges(() => {
     void loadEventsForDate(toDateKey()).then(setTodayEvents).catch((err: any) => setCalendarError(err?.message ?? 'Unable to load today\'s calendar.'));
   }), []);
+
+  useEffect(() => subscribeToTodoChanges(() => { void loadTodayTodos(); }), []);
+
+  async function loadTodayTodos() {
+    try {
+      const todos = await loadTodos();
+      const today = toDateKey();
+      setTodayTodos(todos.filter((todo) => !todo.completed && (!todo.dueAt || toDateKey(new Date(todo.dueAt)) <= today)));
+    } catch (err: any) { setCalendarError(err?.message ?? 'Unable to load today\'s tasks.'); }
+  }
 
   async function checkSession() {
     setLoading(true);
@@ -135,6 +147,7 @@ export default function Today() {
       try {
         setCalendarError('');
         setTodayEvents(await loadEventsForDate(toDateKey()));
+        await loadTodayTodos();
       } catch (calendarLoadError: any) {
         setCalendarError(calendarLoadError?.message ?? 'Unable to load today\'s calendar.');
       }
@@ -290,6 +303,17 @@ export default function Today() {
           </View>
         ))}
       </Card>}
+
+      <SectionTitle title="To-Do" action={`${todayTodos.length} active`} />
+      <Card>
+        {todayTodos.length === 0 ? <Text style={s.meta}>No tasks due today.</Text> : todayTodos.slice(0, 4).map((todo, index) => (
+          <View key={todo.id} style={[s.todoRow, index < Math.min(todayTodos.length, 4) - 1 && s.sep]}>
+            <Ionicons name="ellipse-outline" size={20} color={colors.sage}/>
+            <View style={{ flex: 1 }}><Text style={s.eventTitle}>{todo.title}</Text><Text style={s.meta}>{todo.dueAt ? 'Due today or overdue' : 'No due date'}</Text></View>
+            <MemberChips ids={todo.assignees.map((member) => member.id)} memberOptions={todo.assignees}/>
+          </View>
+        ))}
+      </Card>
 
       <SectionTitle title="Quick add" />
 
@@ -483,6 +507,8 @@ const s = StyleSheet.create({
     color: colors.forest,
     fontWeight: '700',
   },
+
+  todoRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   event: {
     minHeight: 68,
