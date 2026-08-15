@@ -59,6 +59,14 @@ export async function addMenuEntry(input: {
   if (error) throw error;
 }
 
+export async function loadMenuForRange(startKey: string, endKey: string): Promise<Record<string, MenuEntry[]>> {
+  const { data, error } = await supabase.from('menu_entries').select(select).gte('on_date', startKey).lte('on_date', endKey).order('on_date').order('created_at');
+  if (error) throw error;
+  const out: Record<string, MenuEntry[]> = {};
+  for (const row of (data ?? []) as unknown as Row[]) { const e = map(row); (out[e.onDate] ??= []).push(e); }
+  return out;
+}
+
 export async function updateMenuEntry(id: string, input: { meal: Meal; recipeId?: string | null; title?: string }): Promise<void> {
   const recipeId = input.recipeId || null;
   const title = input.title?.trim() || null;
