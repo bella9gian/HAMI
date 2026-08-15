@@ -4,7 +4,9 @@ export type ShoppingItem = {
   id: string;
   name: string;
   quantity: string | null;
-  category: string | null;
+  store: string | null;
+  buyBy: string | null;
+  notes: string | null;
   isPurchased: boolean;
   purchasedAt: string | null;
 };
@@ -13,20 +15,44 @@ type Row = {
   id: string;
   name: string;
   quantity: string | null;
-  category: string | null;
+  store: string | null;
+  buy_by: string | null;
+  notes: string | null;
   is_purchased: boolean;
   purchased_at: string | null;
 };
 
-const select = 'id, name, quantity, category, is_purchased, purchased_at';
+const select = 'id, name, quantity, store, buy_by, notes, is_purchased, purchased_at';
 const map = (row: Row): ShoppingItem => ({
   id: row.id,
   name: row.name,
   quantity: row.quantity,
-  category: row.category,
+  store: row.store,
+  buyBy: row.buy_by,
+  notes: row.notes,
   isPurchased: row.is_purchased,
   purchasedAt: row.purchased_at,
 });
+
+export type ShoppingItemInput = {
+  name: string;
+  quantity?: string;
+  store?: string;
+  buyBy?: string;
+  notes?: string;
+};
+
+function toColumns(input: ShoppingItemInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error('Add an item name.');
+  return {
+    name,
+    quantity: input.quantity?.trim() || null,
+    store: input.store?.trim() || null,
+    buy_by: input.buyBy?.trim() || null,
+    notes: input.notes?.trim() || null,
+  };
+}
 
 export async function loadShoppingItems(): Promise<ShoppingItem[]> {
   const { data, error } = await supabase
@@ -38,23 +64,18 @@ export async function loadShoppingItems(): Promise<ShoppingItem[]> {
   return ((data ?? []) as Row[]).map(map);
 }
 
-export async function addShoppingItem(input: {
-  householdId: string;
-  createdBy: string;
-  name: string;
-  quantity?: string;
-  category?: string;
-}): Promise<void> {
-  const name = input.name.trim();
-  if (!name) throw new Error('Add an item name.');
+export async function addShoppingItem(input: ShoppingItemInput & { householdId: string; createdBy: string }): Promise<void> {
   const { error } = await supabase.from('shopping_items').insert({
     household_id: input.householdId,
     created_by: input.createdBy,
-    name,
-    quantity: input.quantity?.trim() || null,
-    category: input.category?.trim() || null,
     is_purchased: false,
+    ...toColumns(input),
   });
+  if (error) throw error;
+}
+
+export async function updateShoppingItem(id: string, input: ShoppingItemInput): Promise<void> {
+  const { error } = await supabase.from('shopping_items').update(toColumns(input)).eq('id', id);
   if (error) throw error;
 }
 
