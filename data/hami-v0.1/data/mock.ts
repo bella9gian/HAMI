@@ -35,8 +35,7 @@ export const modules: ModuleItem[] = [
   { title: 'Photos', subtitle: 'Memories we treasure', icon: 'images-outline', route: '/more/photos', tint: '#E7DFD5' },
   { title: 'Habits', subtitle: 'Daily rhythms & streaks', icon: 'leaf-outline', route: '/more/habits', tint: '#DFE8D4' },
   { title: 'Supplements', subtitle: 'Vitamins & supplement tracker', icon: 'medical-outline', route: '/more/supplements', tint: '#F0E0C7' },
-  { title: 'Skincare', subtitle: 'Routines & products', icon: 'water-outline', route: '/more/skincare', tint: '#E8DDEA' },
-  { title: 'Makeup', subtitle: 'Favorites & products', icon: 'color-palette-outline', route: '/more/makeup', tint: '#F0D7C9' },
+  { title: 'Beauty', subtitle: 'Skincare & makeup by category', icon: 'sparkles-outline', route: '/more/beauty', tint: '#E8DDEA' },
   { title: 'Shopping', subtitle: 'Shared grocery & shopping list', icon: 'cart-outline', route: '/more/shopping', tint: '#DCE8EA' },
   { title: 'Household', subtitle: 'Family members & relationships', icon: 'home-outline', route: '/more/household', tint: '#E6DED2' },
 ];
