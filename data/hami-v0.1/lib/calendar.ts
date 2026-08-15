@@ -153,6 +153,31 @@ export async function loadEventsForDate(date: string) {
   return [...oneOff, ...occurrences].sort((a, b) => (a.startsAt < b.startsAt ? -1 : a.startsAt > b.startsAt ? 1 : 0));
 }
 
+export async function loadEventsForRange(startKey: string, endKey: string): Promise<Record<string, CalendarEvent[]>> {
+  const startIso = new Date(`${startKey}T00:00:00`).toISOString();
+  const endIso = new Date(`${endKey}T23:59:59`).toISOString();
+  const [oneOffRes, recurringRes] = await Promise.all([
+    supabase.from('calendar_events').select(eventSelect).gte('starts_at', startIso).lte('starts_at', endIso).order('starts_at'),
+    supabase.from('calendar_events').select(eventSelect).neq('recurrence', 'none').lte('starts_at', endIso),
+  ]);
+  if (oneOffRes.error) throw oneOffRes.error;
+  if (recurringRes.error) throw recurringRes.error;
+
+  const out: Record<string, CalendarEvent[]> = {};
+  const push = (key: string, ev: CalendarEvent) => { (out[key] ??= []).push(ev); };
+  for (const row of (oneOffRes.data ?? []) as unknown as EventRow[]) { const ev = mapEvent(row); push(toDateKey(new Date(ev.startsAt)), ev); }
+  const range = eachDateKey(startKey, endKey);
+  for (const row of (recurringRes.data ?? []) as unknown as EventRow[]) {
+    const ev = mapEvent(row);
+    const startDay = toDateKey(new Date(ev.startsAt));
+    for (const key of range) {
+      if (key !== startDay && occursOnKey(ev.startsAt, ev.recurrence, ev.recurrenceEnd, key)) push(key, occurrenceFor(ev, key));
+    }
+  }
+  for (const key of Object.keys(out)) out[key].sort((a, b) => (a.startsAt < b.startsAt ? -1 : a.startsAt > b.startsAt ? 1 : 0));
+  return out;
+}
+
 export async function loadEventDays(startKey: string, endKey: string): Promise<string[]> {
   const startIso = new Date(`${startKey}T00:00:00`).toISOString();
   const endIso = new Date(`${endKey}T23:59:59`).toISOString();
