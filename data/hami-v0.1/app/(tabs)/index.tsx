@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '@/components/Screen';
+import { Logo } from '@/components/Logo';
 import {
   Card,
   MemberChips,
@@ -174,6 +175,7 @@ export default function Today() {
     return (
       <Screen>
         <View style={s.signInWrap}>
+          <View style={s.logoWrap}><Logo size={132}/></View>
           <Text style={s.brand}>HAMI</Text>
           <Text style={s.tagline}>Our Life · Our Home · Our Story</Text>
 
@@ -367,6 +369,11 @@ const s = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
     paddingTop: 70,
+  },
+
+  logoWrap: {
+    alignItems: 'center',
+    marginBottom: 12,
   },
 
   brand: {
