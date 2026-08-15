@@ -7,6 +7,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { Screen } from '@/components/Screen';
@@ -23,6 +24,7 @@ import { loadTodos, subscribeToTodoChanges, Todo } from '@/lib/todos';
 import { Chore, loadChores, subscribeToChoreChanges } from '@/lib/chores';
 
 export default function Today() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [signedIn, setSignedIn] = useState(false);
 
@@ -280,18 +282,22 @@ export default function Today() {
         <QuickButton
           icon="calendar-outline"
           label="Event"
+          onPress={() => router.push({ pathname: '/(tabs)/calendar', params: { new: '1' } })}
         />
         <QuickButton
           icon="checkbox-outline"
           label="Task"
+          onPress={() => router.push({ pathname: '/(tabs)/todo', params: { new: '1' } })}
         />
         <QuickButton
           icon="document-text-outline"
           label="Note"
+          onPress={() => router.push({ pathname: '/(tabs)/todo', params: { new: '1' } })}
         />
         <QuickButton
           icon="camera-outline"
           label="Photo"
+          onPress={() => router.push('/more/photos')}
         />
       </View>
 
