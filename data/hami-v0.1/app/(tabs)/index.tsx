@@ -232,6 +232,7 @@ export default function Today() {
 
       <SectionTitle title={`Today · ${new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}`} action="Calendar" />
 
+      <Pressable onPress={() => router.push('/(tabs)/calendar')}>
       {calendarError ? <Card><Text style={s.error}>{calendarError}</Text></Card> : todayEvents.length === 0 ? <Card><Text style={s.meta}>Nothing on the calendar today.</Text></Card> : <Card>
         {todayEvents.map((e, i) => (
           <View
@@ -261,8 +262,10 @@ export default function Today() {
           </View>
         ))}
       </Card>}
+      </Pressable>
 
       <SectionTitle title="To-Do" action={`${todayTodos.length} active`} />
+      <Pressable onPress={() => router.push('/(tabs)/todo')}>
       <Card>
         {todayTodos.length === 0 ? <Text style={s.meta}>No tasks due today.</Text> : todayTodos.slice(0, 4).map((todo, index) => (
           <View key={todo.id} style={[s.todoRow, index < Math.min(todayTodos.length, 4) - 1 && s.sep]}>
@@ -272,6 +275,7 @@ export default function Today() {
           </View>
         ))}
       </Card>
+      </Pressable>
 
       <SectionTitle title="Due chores" action={`${dueChores.length} due`} />
       <Card>{dueChores.length === 0 ? <Text style={s.meta}>No chores due right now.</Text> : dueChores.slice(0, 4).map((chore, index) => <View key={chore.id} style={[s.todoRow, index < Math.min(dueChores.length, 4) - 1 && s.sep]}><Ionicons name="brush-outline" size={20} color={colors.clay}/><View style={{flex:1}}><Text style={s.eventTitle}>{chore.title}</Text><Text style={s.meta}>{chore.room || 'Around the house'}</Text></View><MemberChips ids={chore.assignees.map(member => member.id)} memberOptions={chore.assignees}/></View>)}</Card>
