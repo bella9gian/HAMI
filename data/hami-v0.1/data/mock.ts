@@ -36,5 +36,6 @@ export const modules: ModuleItem[] = [
   { title: 'Supplements', subtitle: 'Vitamins & supplement tracker', icon: 'medical-outline', route: '/more/supplements', tint: '#F0E0C7' },
   { title: 'Skincare', subtitle: 'Routines & products', icon: 'water-outline', route: '/more/skincare', tint: '#E8DDEA' },
   { title: 'Makeup', subtitle: 'Favorites & products', icon: 'color-palette-outline', route: '/more/makeup', tint: '#F0D7C9' },
-  { title: 'Household', subtitle: 'Lists, groceries, contacts & maintenance', icon: 'home-outline', route: '/more/household', tint: '#E6DED2' },
+  { title: 'Shopping', subtitle: 'Shared grocery & shopping list', icon: 'cart-outline', route: '/more/shopping', tint: '#DCE8EA' },
+  { title: 'Household', subtitle: 'Family members & relationships', icon: 'home-outline', route: '/more/household', tint: '#E6DED2' },
 ];
