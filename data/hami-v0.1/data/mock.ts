@@ -30,7 +30,8 @@ export const chores: Chore[] = [
 
 export const modules: ModuleItem[] = [
   { title: 'Trips', subtitle: 'Plans, itineraries, bookings & notes', icon: 'airplane-outline', route: '/more/trips', tint: '#DCE8EA' },
-  { title: 'Recipes', subtitle: 'Family favorites & meal ideas', icon: 'restaurant-outline', route: '/more/recipes', tint: '#ECE8C8' },
+  { title: 'Menu', subtitle: 'Plan meals from your recipes', icon: 'fast-food-outline', route: '/more/menu', tint: '#ECE8C8' },
+  { title: 'Recipes', subtitle: 'Family favorites & meal ideas', icon: 'restaurant-outline', route: '/more/recipes', tint: '#F0DFD1' },
   { title: 'Photos', subtitle: 'Memories we treasure', icon: 'images-outline', route: '/more/photos', tint: '#E7DFD5' },
   { title: 'Habits', subtitle: 'Daily rhythms & streaks', icon: 'leaf-outline', route: '/more/habits', tint: '#DFE8D4' },
   { title: 'Supplements', subtitle: 'Vitamins & supplement tracker', icon: 'medical-outline', route: '/more/supplements', tint: '#F0E0C7' },

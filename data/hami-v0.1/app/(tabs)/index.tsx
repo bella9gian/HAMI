@@ -22,6 +22,7 @@ import { CalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, subscr
 import { supabase } from '@/lib/supabase';
 import { loadTodos, subscribeToTodoChanges, Todo } from '@/lib/todos';
 import { Chore, loadChores, subscribeToChoreChanges } from '@/lib/chores';
+import { loadMenuForDate, menuLabel, MenuEntry } from '@/lib/menu';
 
 export default function Today() {
   const router = useRouter();
@@ -35,6 +36,7 @@ export default function Today() {
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
   const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [dueChores, setDueChores] = useState<Chore[]>([]);
+  const [todayMenu, setTodayMenu] = useState<MenuEntry[]>([]);
   const [calendarError, setCalendarError] = useState('');
   const [currentMember, setCurrentMember] =
     useState<FamilyMember | null>(null);
@@ -142,6 +144,7 @@ export default function Today() {
         setTodayEvents(await loadEventsForDate(toDateKey()));
         await loadTodayTodos();
         await loadDueChores();
+        try { setTodayMenu(await loadMenuForDate(toDateKey())); } catch { /* menu is best-effort */ }
       } catch (calendarLoadError: any) {
         setCalendarError(calendarLoadError?.message ?? 'Unable to load today\'s calendar.');
       }
@@ -275,6 +278,18 @@ export default function Today() {
           </View>
         ))}
       </Card>
+      </Pressable>
+
+      <SectionTitle title="Today's menu" action="Menu" />
+      <Pressable onPress={() => router.push('/more/menu')}>
+        <Card>
+          {todayMenu.length === 0 ? <Text style={s.meta}>No meals planned today.</Text> : todayMenu.map((entry, index) => (
+            <View key={entry.id} style={[s.todoRow, index < todayMenu.length - 1 && s.sep]}>
+              <Ionicons name="restaurant-outline" size={20} color={colors.clay}/>
+              <View style={{ flex: 1 }}><Text style={s.eventTitle}>{menuLabel(entry)}</Text><Text style={s.meta}>{entry.meal.charAt(0).toUpperCase() + entry.meal.slice(1)}</Text></View>
+            </View>
+          ))}
+        </Card>
       </Pressable>
 
       <SectionTitle title="Due chores" action={`${dueChores.length} due`} />
