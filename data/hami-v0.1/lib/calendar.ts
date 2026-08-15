@@ -86,6 +86,18 @@ export async function loadEventsForDate(date: string) {
   return ((data ?? []) as unknown as EventRow[]).map(mapEvent);
 }
 
+export async function loadEventDays(startKey: string, endKey: string): Promise<string[]> {
+  const start = new Date(`${startKey}T00:00:00`).toISOString();
+  const end = new Date(`${endKey}T23:59:59`).toISOString();
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .select('starts_at')
+    .gte('starts_at', start)
+    .lte('starts_at', end);
+  if (error) throw error;
+  return ((data ?? []) as Array<{ starts_at: string }>).map((row) => toDateKey(new Date(row.starts_at)));
+}
+
 export async function createCalendarEvent({
   householdId,
   title,
