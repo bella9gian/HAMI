@@ -15,6 +15,8 @@ export function DateField({ value, onChange, mode = 'date' }: DateFieldProps) {
   return React.createElement('input', {
     type: mode === 'time' ? 'time' : 'date',
     value: value ?? '',
+    // 300s = 5-minute increments for time pickers.
+    step: mode === 'time' ? 300 : undefined,
     onChange: (event: { target: { value: string } }) => onChange(event.target.value),
     style: {
       boxSizing: 'border-box',
