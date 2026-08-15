@@ -21,6 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: List available secret names (debug)
+        env:
+          ALL_SECRETS: ${{ toJSON(secrets) }}
+        run: |
+          echo "Secret names GitHub is passing to this workflow:"
+          echo "$ALL_SECRETS" | jq -r 'keys[]' | sed 's/^/  - /'
+
       - name: Check required secrets
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
