@@ -30,29 +30,28 @@ Copy `.env.example` to `.env` and set the Project URL plus publishable/anon key.
 
 ## Deploying the web app
 
-Pushes to `main` that touch `data/hami-v0.1/**` build the static web export and
-deploy it to Cloudflare Pages via `.github/workflows/deploy.yml`. You can also
-run it manually from the Actions tab (**Run workflow**).
+The web app is deployed to **Cloudflare Pages** using Cloudflare's built-in Git
+integration (Workers & Pages → the Pages project → Settings → Builds &
+deployments). Cloudflare builds and deploys automatically on every push to
+`main`. Configure the project with:
 
-Configure these once in the GitHub repo (**Settings → Secrets and variables → Actions**):
-
-**Secrets**
-
-| Name | Purpose |
+| Setting | Value |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | Token with the *Cloudflare Pages — Edit* permission |
-| `CLOUDFLARE_ACCOUNT_ID` | Your Cloudflare account ID |
+| Production branch | `main` |
+| Root directory | `data/hami-v0.1` |
+| Build command | `npx expo export --platform web` |
+| Build output directory | `dist` |
+
+**Environment variables** (Production, set in the Pages project settings):
+
+| Name | Value |
+| --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | Supabase project URL (baked into the web build) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon/publishable key |
+| `NODE_VERSION` | `20` |
 
-**Variables (optional)**
-
-| Name | Default | Purpose |
-| --- | --- | --- |
-| `CLOUDFLARE_PAGES_PROJECT` | `hami` | Cloudflare Pages project name to deploy to |
-
-The build output directory is `data/hami-v0.1/dist`. The custom domain
-(`hami.mikobe.app`) is attached to the Pages project in the Cloudflare dashboard.
+The custom domain (`hami.mikobe.app`) is attached to the Pages project in the
+Cloudflare dashboard.
 
 ## Next build milestone
 
