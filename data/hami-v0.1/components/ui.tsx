@@ -28,8 +28,8 @@ export function SectionTitle({ title, action }: { title: string; action?: string
   return <View style={styles.sectionTitle}><Text style={styles.sectionText}>{title}</Text>{action ? <Text style={styles.action}>{action}</Text> : null}</View>;
 }
 
-export function QuickButton({ icon, label }: { icon: any; label: string }) {
-  return <Pressable style={styles.quick}><Ionicons name={icon} size={19} color={colors.forest}/><Text style={styles.quickText}>{label}</Text></Pressable>;
+export function QuickButton({ icon, label, onPress }: { icon: any; label: string; onPress?: () => void }) {
+  return <Pressable style={styles.quick} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}><Ionicons name={icon} size={19} color={colors.forest}/><Text style={styles.quickText}>{label}</Text></Pressable>;
 }
 
 const styles = StyleSheet.create({

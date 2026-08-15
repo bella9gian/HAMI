@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
+import { DateField } from '@/components/DateField';
 import { Card, MemberChips, ScreenHeader, SectionTitle } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { CalendarEvent, createCalendarEvent, deleteCalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, toDateKey, updateCalendarEvent } from '@/lib/calendar';
@@ -21,8 +23,10 @@ export default function Calendar() {
   const [title, setTitle] = useState(''); const [date, setDate] = useState(toDateKey()); const [startTime, setStartTime] = useState('09:00'); const [endTime, setEndTime] = useState('10:00'); const [allDay, setAllDay] = useState(false); const [location, setLocation] = useState(''); const [description, setDescription] = useState(''); const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const week = useMemo(() => { const active = dateFromKey(selectedDate); const sunday = new Date(active); sunday.setDate(active.getDate() - active.getDay()); return Array.from({ length: 7 }, (_, index) => { const day = new Date(sunday); day.setDate(sunday.getDate() + index); return { key: toDateKey(day), day }; }); }, [selectedDate]);
 
+  const params = useLocalSearchParams<{ new?: string }>();
   useEffect(() => { void loadHousehold(); }, []);
   useEffect(() => { if (householdId) void loadEvents(); }, [selectedDate, householdId]);
+  useEffect(() => { if (params.new === '1') { resetForm(); setShowForm(true); } }, [params.new]);
 
   async function loadHousehold() {
     setLoading(true); setError('');
@@ -52,9 +56,9 @@ export default function Calendar() {
     <View style={s.days}>{week.map(({ key, day }) => <Pressable key={key} onPress={() => setSelectedDate(key)} style={s.day}><Text style={s.dayName}>{dayFormatter.format(day).charAt(0)}</Text><View style={[s.dayNum, key === selectedDate && s.active]}><Text style={[s.num, key === selectedDate && s.activeText]}>{day.getDate()}</Text></View></Pressable>)}</View>
     {showForm && <Card style={s.form}>
       <View style={s.formHead}><Text style={s.formTitle}>{editingEvent ? 'Edit event' : 'New event'}</Text><Pressable onPress={() => { setShowForm(false); resetForm(); }}><Ionicons name="close" size={22} color={colors.muted}/></Pressable></View>
-      <TextInput value={title} onChangeText={setTitle} placeholder="Event title" placeholderTextColor={colors.muted} style={s.input}/><TextInput value={date} onChangeText={setDate} placeholder="YYYY-MM-DD" placeholderTextColor={colors.muted} autoCapitalize="none" style={s.input}/>
+      <TextInput value={title} onChangeText={setTitle} placeholder="Event title" placeholderTextColor={colors.muted} style={s.input}/><Text style={s.label}>Date</Text><DateField value={date} onChange={setDate} mode="date"/>
       <View style={s.allDayRow}><Text style={s.label}>All day</Text><Switch value={allDay} onValueChange={setAllDay} trackColor={{ false: colors.border, true: colors.forestSoft }} thumbColor={allDay ? colors.forest : '#fff'}/></View>
-      {!allDay && <View style={s.timeRow}><TextInput value={startTime} onChangeText={setStartTime} placeholder="09:00" placeholderTextColor={colors.muted} style={[s.input, s.timeInput]}/><Text style={s.to}>to</Text><TextInput value={endTime} onChangeText={setEndTime} placeholder="10:00" placeholderTextColor={colors.muted} style={[s.input, s.timeInput]}/></View>}
+      {!allDay && <View style={s.timeRow}><View style={s.timeInput}><DateField value={startTime} onChange={setStartTime} mode="time"/></View><Text style={s.to}>to</Text><View style={s.timeInput}><DateField value={endTime} onChange={setEndTime} mode="time"/></View></View>}
       <TextInput value={location} onChangeText={setLocation} placeholder="Location (optional)" placeholderTextColor={colors.muted} style={s.input}/><TextInput value={description} onChangeText={setDescription} placeholder="Description (optional)" placeholderTextColor={colors.muted} multiline style={[s.input, s.description]}/>
       <View style={s.assigneeHead}><Text style={s.label}>Assigned to</Text><Pressable onPress={() => setAssigneeIds(assigneeIds.length === members.length ? [] : members.map((member) => member.id))}><Text style={s.allButton}>{assigneeIds.length === members.length ? 'Clear all' : 'All family'}</Text></Pressable></View>
       <View style={s.assignees}>{members.map((member) => <Pressable key={member.id} onPress={() => toggleAssignee(member.id)} style={[s.assignee, assigneeIds.includes(member.id) && s.assigneeActive]}><Text style={[s.assigneeText, assigneeIds.includes(member.id) && s.assigneeTextActive]}>{member.first_name || member.display_name}</Text></Pressable>)}</View>
