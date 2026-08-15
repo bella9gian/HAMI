@@ -30,7 +30,6 @@ export default function Today() {
   const [password, setPassword] = useState('');
 
   const [error, setError] = useState('');
-  const [members, setMembers] = useState<FamilyMember[]>([]);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
   const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [dueChores, setDueChores] = useState<Chore[]>([]);
@@ -49,7 +48,6 @@ export default function Today() {
         loadHousehold(session.user.id);
       } else {
         setSignedIn(false);
-        setMembers([]);
         setCurrentMember(null);
         setLoading(false);
       }
@@ -136,22 +134,7 @@ export default function Today() {
         throw meError;
       }
 
-      // Load everyone in the Chan–Siagian household.
-      const { data: family, error: familyError } = await supabase
-        .from('family_members')
-        .select(
-          'id, display_name, first_name, relationship, user_id'
-        )
-        .eq('household_id', me.household_id)
-        .eq('is_active', true)
-        .order('created_at');
-
-      if (familyError) {
-        throw familyError;
-      }
-
       setCurrentMember(me);
-      setMembers(family ?? []);
       try {
         setCalendarError('');
         setTodayEvents(await loadEventsForDate(toDateKey()));
@@ -244,42 +227,6 @@ export default function Today() {
           </Text>
         </Pressable>
       </View>
-
-      <SectionTitle
-        title="Our family"
-        action={`${members.length} members`}
-      />
-
-      <Card>
-        {members.map((member, index) => (
-          <View
-            key={member.id}
-            style={[
-              s.familyRow,
-              index < members.length - 1 && s.sep,
-            ]}
-          >
-            <View style={s.familyAvatar}>
-              <Text style={s.familyAvatarText}>
-                {member.display_name.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-
-            <View style={{ flex: 1 }}>
-              <Text style={s.eventTitle}>
-                {member.display_name}
-              </Text>
-              <Text style={s.meta}>
-                {member.relationship ?? 'Family'}
-              </Text>
-            </View>
-
-            {member.user_id && (
-              <Text style={s.loginBadge}>HAMI login</Text>
-            )}
-          </View>
-        ))}
-      </Card>
 
       <SectionTitle title={`Today · ${new Intl.DateTimeFormat(undefined, { weekday: 'long', month: 'short', day: 'numeric' }).format(new Date())}`} action="Calendar" />
 
@@ -491,33 +438,6 @@ const s = StyleSheet.create({
   profileText: {
     color: '#fff',
     fontWeight: '800',
-  },
-
-  familyRow: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-
-  familyAvatar: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E6EFE9',
-  },
-
-  familyAvatarText: {
-    color: colors.forest,
-    fontWeight: '800',
-  },
-
-  loginBadge: {
-    fontSize: 11,
-    color: colors.forest,
-    fontWeight: '700',
   },
 
   todoRow: { minHeight: 58, flexDirection: 'row', alignItems: 'center', gap: 10 },
