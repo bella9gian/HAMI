@@ -6,7 +6,7 @@ import { Screen } from '@/components/Screen';
 import { DateField } from '@/components/DateField';
 import { Card, MemberChips, ScreenHeader, SectionTitle } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
-import { CalendarEvent, createCalendarEvent, deleteCalendarEvent, FamilyMember, formatEventTime, loadEventDays, loadEventsForDate, Recurrence, RECURRENCE_OPTIONS, toDateKey, updateCalendarEvent } from '@/lib/calendar';
+import { CalendarEvent, createCalendarEvent, deleteCalendarEvent, FamilyMember, formatEventTime, loadEventDays, loadEventsForDate, loadEventsForRange, Recurrence, RECURRENCE_OPTIONS, toDateKey, updateCalendarEvent } from '@/lib/calendar';
 import { supabase } from '@/lib/supabase';
 
 const eventColors = ['#D98D62', '#8BAEBB', '#94A783', '#A18AB6'];
@@ -48,6 +48,8 @@ export default function Calendar() {
   const [monthPickerOpen, setMonthPickerOpen] = useState(false);
   const [pickerYear, setPickerYear] = useState(dateFromKey(todayKey).getFullYear());
   const [eventDays, setEventDays] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [rangeEvents, setRangeEvents] = useState<Record<string, CalendarEvent[]>>({});
   const weeks = useMemo(() => {
     const base = dateFromKey(anchorKey);
     const sunday = new Date(base); sunday.setDate(base.getDate() - base.getDay());
@@ -104,6 +106,29 @@ export default function Calendar() {
     setEndTime(addMinutesToTime(value, duration > 0 ? duration : 60));
   }
 
+  const weekDays = weeks[centerWeek] ?? weeks[WEEK_SPAN] ?? [];
+  const monthAnchor = weeks[centerWeek]?.[3]?.day ?? dateFromKey(anchorKey);
+  const displayMonthKey = `${monthAnchor.getFullYear()}-${monthAnchor.getMonth()}`;
+  const gridWeeks = useMemo(() => {
+    const [y, mo] = displayMonthKey.split('-').map(Number);
+    const first = new Date(y, mo, 1, 12);
+    const gridStart = new Date(first); gridStart.setDate(first.getDate() - first.getDay());
+    return Array.from({ length: 6 }, (_, w) => Array.from({ length: 7 }, (_, d) => {
+      const day = new Date(gridStart); day.setDate(gridStart.getDate() + w * 7 + d);
+      return { key: toDateKey(day), day, inMonth: day.getMonth() === mo };
+    }));
+  }, [displayMonthKey]);
+  function goMonth(delta: number) {
+    const [y, mo] = displayMonthKey.split('-').map(Number);
+    const target = new Date(y, mo + delta, 1, 12);
+    jumpToMonth(target.getFullYear(), target.getMonth());
+  }
+  async function refreshRange() {
+    const wk = weeks[centerWeek]; if (!wk) return;
+    try { setRangeEvents(await loadEventsForRange(wk[0].key, wk[6].key)); } catch { /* best-effort */ }
+  }
+  useEffect(() => { if (householdId && viewMode === 'week') void refreshRange(); }, [householdId, viewMode, centerWeek]);
+
   const params = useLocalSearchParams<{ new?: string }>();
   useEffect(() => { void loadHousehold(); }, []);
   useEffect(() => { if (householdId) void loadEvents(); }, [selectedDate, householdId]);
@@ -131,14 +156,32 @@ export default function Calendar() {
   async function saveEvent() {
     if (!householdId || !title.trim()) { setError('Add an event title before saving.'); return; }
     setSaving(true); setError('');
-    try { const values = { householdId, title, date, startTime, endTime, allDay, location, description, assigneeIds, recurrence, recurrenceEnd: recurrenceEnd || null }; if (editingEvent) await updateCalendarEvent({ ...values, id: editingEvent.id }); else await createCalendarEvent(values); setSelectedDate(date); setEvents(await loadEventsForDate(date)); await refreshEventDays(); setShowForm(false); resetForm(); }
+    try { const values = { householdId, title, date, startTime, endTime, allDay, location, description, assigneeIds, recurrence, recurrenceEnd: recurrenceEnd || null }; if (editingEvent) await updateCalendarEvent({ ...values, id: editingEvent.id }); else await createCalendarEvent(values); setSelectedDate(date); setEvents(await loadEventsForDate(date)); await refreshEventDays(); await refreshRange(); setShowForm(false); resetForm(); }
     catch (err: any) { setError(err?.message ?? 'Unable to save this event.'); } finally { setSaving(false); }
   }
-  async function removeEvent() { if (!editingEvent) return; if (!confirmDelete) { setConfirmDelete(true); return; } setSaving(true); setError(''); try { await deleteCalendarEvent(editingEvent.id); setEvents(await loadEventsForDate(selectedDate)); await refreshEventDays(); setShowForm(false); resetForm(); } catch (err: any) { setError(err?.message ?? 'Unable to delete this event.'); } finally { setSaving(false); } }
+  async function removeEvent() { if (!editingEvent) return; if (!confirmDelete) { setConfirmDelete(true); return; } setSaving(true); setError(''); try { await deleteCalendarEvent(editingEvent.id); setEvents(await loadEventsForDate(selectedDate)); await refreshEventDays(); await refreshRange(); setShowForm(false); resetForm(); } catch (err: any) { setError(err?.message ?? 'Unable to delete this event.'); } finally { setSaving(false); } }
   const toggleAssignee = (id: string) => setAssigneeIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+
+  function eventCard(list: CalendarEvent[]) {
+    return <Card>{list.map((event, index) => (
+      <Pressable key={event.id} onPress={() => openEdit(event)} style={[s.event, index < list.length - 1 && s.sep]}>
+        <View style={s.time}><Text style={s.timeText}>{formatEventTime(event)}</Text>{!event.allDay && event.endsAt && <Text style={s.meta}>{new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(event.endsAt))}</Text>}</View>
+        <View style={[s.line, { backgroundColor: eventColors[index % eventColors.length] }]}/>
+        <View style={s.eventContent}><View style={s.titleRow}><Text style={s.title}>{event.title}</Text>{event.recurrence !== 'none' && <Ionicons name="repeat" size={13} color={colors.muted}/>}</View>{event.location && <Text style={s.meta}>{event.location}</Text>}</View>
+        <MemberChips ids={event.assignees.map((member) => member.id)} memberOptions={event.assignees}/>
+      </Pressable>
+    ))}</Card>;
+  }
 
   return <Screen>
     <ScreenHeader title="Calendar" right={<Pressable onPress={() => { resetForm(); setShowForm(true); }} accessibilityLabel="Add event"><Ionicons name="add" size={28} color={colors.forest}/></Pressable>}/>
+    <View style={s.segment}>
+      {(['day', 'week', 'month'] as const).map((mode) => (
+        <Pressable key={mode} onPress={() => setViewMode(mode)} style={[s.segmentBtn, viewMode === mode && s.segmentOn]}>
+          <Text style={[s.segmentText, viewMode === mode && s.segmentTextOn]}>{mode[0].toUpperCase() + mode.slice(1)}</Text>
+        </Pressable>
+      ))}
+    </View>
     <View style={s.calStrip}>
       <View style={s.calHead}>
         <Pressable onPress={openMonthPicker} hitSlop={8} style={s.monthLabelWrap} accessibilityLabel="Pick month or year">
@@ -147,8 +190,8 @@ export default function Calendar() {
         </Pressable>
         <View style={s.calNav}>
           <Pressable onPress={goToday} hitSlop={8} accessibilityLabel="Go to today"><Text style={s.todayBtn}>Today</Text></Pressable>
-          <Pressable onPress={() => goWeek(-1)} hitSlop={10} accessibilityLabel="Previous week"><Ionicons name="chevron-back" size={20} color={colors.forest}/></Pressable>
-          <Pressable onPress={() => goWeek(1)} hitSlop={10} accessibilityLabel="Next week"><Ionicons name="chevron-forward" size={20} color={colors.forest}/></Pressable>
+          <Pressable onPress={() => (viewMode === 'month' ? goMonth(-1) : goWeek(-1))} hitSlop={10} accessibilityLabel="Previous"><Ionicons name="chevron-back" size={20} color={colors.forest}/></Pressable>
+          <Pressable onPress={() => (viewMode === 'month' ? goMonth(1) : goWeek(1))} hitSlop={10} accessibilityLabel="Next"><Ionicons name="chevron-forward" size={20} color={colors.forest}/></Pressable>
         </View>
       </View>
       {monthPickerOpen && (
@@ -165,25 +208,43 @@ export default function Calendar() {
           </View>
         </Card>
       )}
-      <View onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
-        {stripWidth > 0 && (
-          <ScrollView ref={stripRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onStripScrollEnd}>
-            {weeks.map((wk, wi) => (
-              <View key={wi} style={[s.days, { width: stripWidth }]}>
-                {wk.map(({ key, day }) => (
-                  <Pressable key={key} onPress={() => setSelectedDate(key)} style={s.day}>
-                    <Text style={s.dayName}>{dayFormatter.format(day).charAt(0)}</Text>
-                    <View style={[s.dayNum, key === todayKey && key !== selectedDate && s.todayRing, key === selectedDate && s.active]}>
-                      <Text style={[s.num, key === todayKey && key !== selectedDate && s.todayText, key === selectedDate && s.activeText]}>{day.getDate()}</Text>
-                    </View>
-                    <View style={[s.dot, eventDays.has(key) && s.dotOn, key === selectedDate && eventDays.has(key) && s.dotSelected]}/>
-                  </Pressable>
-                ))}
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </View>
+      {viewMode === 'month' ? (
+        <View style={s.monthView}>
+          <View style={s.gridDow}>{['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <Text key={i} style={s.gridDowText}>{d}</Text>)}</View>
+          {gridWeeks.map((wk, wi) => (
+            <View key={wi} style={s.gridRow}>
+              {wk.map(({ key, day, inMonth }) => (
+                <Pressable key={key} onPress={() => setSelectedDate(key)} style={s.gridCell}>
+                  <View style={[s.dayNum, key === todayKey && key !== selectedDate && s.todayRing, key === selectedDate && s.active]}>
+                    <Text style={[s.num, !inMonth && s.gridDim, key === todayKey && key !== selectedDate && s.todayText, key === selectedDate && s.activeText]}>{day.getDate()}</Text>
+                  </View>
+                  <View style={[s.dot, eventDays.has(key) && s.dotOn, key === selectedDate && eventDays.has(key) && s.dotSelected]}/>
+                </Pressable>
+              ))}
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View onLayout={(e) => setStripWidth(e.nativeEvent.layout.width)}>
+          {stripWidth > 0 && (
+            <ScrollView ref={stripRef} horizontal pagingEnabled showsHorizontalScrollIndicator={false} onMomentumScrollEnd={onStripScrollEnd}>
+              {weeks.map((wk, wi) => (
+                <View key={wi} style={[s.days, { width: stripWidth }]}>
+                  {wk.map(({ key, day }) => (
+                    <Pressable key={key} onPress={() => setSelectedDate(key)} style={s.day}>
+                      <Text style={s.dayName}>{dayFormatter.format(day).charAt(0)}</Text>
+                      <View style={[s.dayNum, key === todayKey && key !== selectedDate && s.todayRing, key === selectedDate && s.active]}>
+                        <Text style={[s.num, key === todayKey && key !== selectedDate && s.todayText, key === selectedDate && s.activeText]}>{day.getDate()}</Text>
+                      </View>
+                      <View style={[s.dot, eventDays.has(key) && s.dotOn, key === selectedDate && eventDays.has(key) && s.dotSelected]}/>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+          )}
+        </View>
+      )}
     </View>
     {showForm && <Card style={s.form}>
       <View style={s.formHead}><Text style={s.formTitle}>{editingEvent ? 'Edit event' : 'New event'}</Text><Pressable onPress={() => { setShowForm(false); resetForm(); }}><Ionicons name="close" size={22} color={colors.muted}/></Pressable></View>
@@ -200,13 +261,26 @@ export default function Calendar() {
       <Pressable onPress={saveEvent} disabled={saving} style={[s.saveButton, saving && s.disabled]}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.saveText}>{editingEvent ? 'Save changes' : 'Save event'}</Text>}</Pressable>
       {editingEvent && <Pressable onPress={removeEvent} disabled={saving} style={s.deleteButton}><Text style={s.deleteText}>{confirmDelete ? 'Tap again to delete permanently' : 'Delete event'}</Text></Pressable>}
     </Card>}
-    <SectionTitle title={dateFormatter.format(dateFromKey(selectedDate))}/>
     {!!error && <Card style={s.message}><Text style={s.error}>{error}</Text><Pressable onPress={loadEvents}><Text style={s.retry}>Try again</Text></Pressable></Card>}
-    {loading ? <View style={s.loading}><ActivityIndicator color={colors.forest}/></View> : !error && events.length === 0 ? <Card style={s.message}><Text style={s.empty}>Nothing scheduled.</Text><Pressable onPress={() => { resetForm(); setShowForm(true); }} style={s.inlineAdd}><Ionicons name="add" size={18} color={colors.forest}/><Text style={s.inlineAddText}>Add appointment</Text></Pressable></Card> : <Card>{events.map((event, index) => <Pressable key={event.id} onPress={() => openEdit(event)} style={[s.event, index < events.length - 1 && s.sep]}><View style={s.time}><Text style={s.timeText}>{formatEventTime(event)}</Text>{!event.allDay && event.endsAt && <Text style={s.meta}>{new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(event.endsAt))}</Text>}</View><View style={[s.line, { backgroundColor: eventColors[index % eventColors.length] }]}/><View style={s.eventContent}><View style={s.titleRow}><Text style={s.title}>{event.title}</Text>{event.recurrence !== 'none' && <Ionicons name="repeat" size={13} color={colors.muted}/>}</View>{event.location && <Text style={s.meta}>{event.location}</Text>}</View><MemberChips ids={event.assignees.map((member) => member.id)} memberOptions={event.assignees}/></Pressable>)}</Card>}
+    {viewMode === 'week' ? (
+      loading ? <View style={s.loading}><ActivityIndicator color={colors.forest}/></View> : !error && weekDays.map(({ key, day }) => (
+        <View key={key}>
+          <SectionTitle title={dateFormatter.format(day)} action={key === todayKey ? 'Today' : (key === selectedDate ? 'Selected' : undefined)}/>
+          {(rangeEvents[key] ?? []).length === 0 ? <Card style={s.message}><Text style={s.meta}>Nothing scheduled.</Text></Card> : eventCard(rangeEvents[key])}
+        </View>
+      ))
+    ) : (
+      <>
+        <SectionTitle title={dateFormatter.format(dateFromKey(selectedDate))}/>
+        {loading ? <View style={s.loading}><ActivityIndicator color={colors.forest}/></View> : !error && events.length === 0 ? <Card style={s.message}><Text style={s.empty}>Nothing scheduled.</Text><Pressable onPress={() => { resetForm(); setShowForm(true); }} style={s.inlineAdd}><Ionicons name="add" size={18} color={colors.forest}/><Text style={s.inlineAddText}>Add appointment</Text></Pressable></Card> : !error && eventCard(events)}
+      </>
+    )}
   </Screen>;
 }
 
 const s = StyleSheet.create({
+  segment: { flexDirection: 'row', gap: 6, backgroundColor: colors.surfaceMuted, borderRadius: radius.pill, padding: 4, marginTop: 6, marginBottom: 4 }, segmentBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: radius.pill }, segmentOn: { backgroundColor: colors.forest }, segmentText: { fontWeight: '700', color: colors.muted, fontSize: 13 }, segmentTextOn: { color: '#fff' },
+  monthView: { paddingTop: 2 }, gridDow: { flexDirection: 'row' }, gridDowText: { flex: 1, textAlign: 'center', fontSize: 11, color: colors.muted, fontWeight: '700', paddingBottom: 6 }, gridRow: { flexDirection: 'row' }, gridCell: { flex: 1, alignItems: 'center', gap: 3, paddingVertical: 5 }, gridDim: { color: colors.border },
   calStrip: { paddingTop: 4 }, calHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, paddingBottom: 4 }, monthLabelWrap: { flexDirection: 'row', alignItems: 'center', gap: 4 }, monthLabel: { fontSize: 15, fontWeight: '800', color: colors.text }, calNav: { flexDirection: 'row', alignItems: 'center', gap: 16 }, todayBtn: { color: colors.forest, fontWeight: '800', fontSize: 13 },
   monthPicker: { marginTop: 6, gap: 12 }, yearRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 24 }, yearText: { fontSize: 16, fontWeight: '800', color: colors.text, minWidth: 60, textAlign: 'center' }, monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }, monthChip: { width: '23%', alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, backgroundColor: colors.surfaceMuted }, monthChipText: { fontWeight: '700', color: colors.text },
   days: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 }, day: { alignItems: 'center', gap: 5, flex: 1 }, dayName: { fontSize: 11, color: colors.muted, fontWeight: '700' }, dayNum: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, active: { backgroundColor: colors.forest }, num: { fontWeight: '700', color: colors.text }, activeText: { color: '#fff' }, todayRing: { borderWidth: 1.5, borderColor: colors.forest }, todayText: { color: colors.forest }, dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: 'transparent' }, dotOn: { backgroundColor: colors.clay }, dotSelected: { backgroundColor: colors.forest },
