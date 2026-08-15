@@ -13,6 +13,14 @@ type EventAssigneeRow = {
   family_members: Array<Pick<FamilyMember, 'id' | 'display_name' | 'first_name'>> | null;
 };
 
+export type Recurrence = 'none' | 'daily' | 'weekly' | 'monthly';
+export const RECURRENCE_OPTIONS: { value: Recurrence; label: string }[] = [
+  { value: 'none', label: 'Does not repeat' },
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+];
+
 type EventRow = {
   id: string;
   title: string;
@@ -21,6 +29,8 @@ type EventRow = {
   location: string | null;
   description: string | null;
   all_day: boolean;
+  recurrence: Recurrence | null;
+  recurrence_end: string | null;
   calendar_event_assignees: EventAssigneeRow[] | null;
 };
 
@@ -32,11 +42,18 @@ export type CalendarEvent = {
   location: string | null;
   description: string | null;
   allDay: boolean;
+  recurrence: Recurrence;
+  recurrenceEnd: string | null;
   assignees: Array<Pick<FamilyMember, 'id' | 'display_name' | 'first_name'>>;
+  // Set when this is a synthesized occurrence of a recurring series.
+  isOccurrence?: boolean;
+  seriesId?: string;
+  seriesStartsAt?: string;
+  seriesEndsAt?: string | null;
 };
 
 const eventSelect = `
-  id, title, starts_at, ends_at, location, description, all_day,
+  id, title, starts_at, ends_at, location, description, all_day, recurrence, recurrence_end,
   calendar_event_assignees (
     family_member_id,
     family_members (id, display_name, first_name)
@@ -69,33 +86,92 @@ function mapEvent(row: EventRow): CalendarEvent {
     location: row.location,
     description: row.description,
     allDay: row.all_day,
+    recurrence: row.recurrence ?? 'none',
+    recurrenceEnd: row.recurrence_end,
     assignees: (row.calendar_event_assignees ?? []).flatMap((assignee) => assignee.family_members ?? []),
   };
 }
 
+// Does a recurring series with this start / rule land on the target day?
+function occursOnKey(startsAt: string, recurrence: Recurrence, recurrenceEnd: string | null, dateKey: string): boolean {
+  if (recurrence === 'none') return false;
+  const startKey = toDateKey(new Date(startsAt));
+  if (dateKey < startKey) return false;
+  if (recurrenceEnd && dateKey > recurrenceEnd) return false;
+  if (recurrence === 'daily') return true;
+  const start = new Date(`${startKey}T12:00:00`);
+  const target = new Date(`${dateKey}T12:00:00`);
+  if (recurrence === 'weekly') return start.getDay() === target.getDay();
+  if (recurrence === 'monthly') return start.getDate() === target.getDate();
+  return false;
+}
+
+// Build the occurrence of a series on `dateKey`, preserving time-of-day + duration.
+function occurrenceFor(event: CalendarEvent, dateKey: string): CalendarEvent {
+  const start = new Date(event.startsAt);
+  const end = event.endsAt ? new Date(event.endsAt) : null;
+  const durationMs = end ? end.getTime() - start.getTime() : 0;
+  const newStart = new Date(`${dateKey}T00:00:00`);
+  newStart.setHours(start.getHours(), start.getMinutes(), 0, 0);
+  const newEnd = end ? new Date(newStart.getTime() + durationMs) : null;
+  return {
+    ...event,
+    id: `${event.id}::${dateKey}`,
+    startsAt: newStart.toISOString(),
+    endsAt: newEnd?.toISOString() ?? null,
+    isOccurrence: true,
+    seriesId: event.id,
+    seriesStartsAt: event.startsAt,
+    seriesEndsAt: event.endsAt,
+  };
+}
+
+function eachDateKey(startKey: string, endKey: string): string[] {
+  const keys: string[] = [];
+  const cursor = new Date(`${startKey}T12:00:00`);
+  const end = new Date(`${endKey}T12:00:00`);
+  while (cursor <= end) { keys.push(toDateKey(cursor)); cursor.setDate(cursor.getDate() + 1); }
+  return keys;
+}
+
 export async function loadEventsForDate(date: string) {
   const { start, end } = localDayRange(date);
-  const { data, error } = await supabase
-    .from('calendar_events')
-    .select(eventSelect)
-    .gte('starts_at', start)
-    .lt('starts_at', end)
-    .order('starts_at');
+  const [oneOffRes, recurringRes] = await Promise.all([
+    supabase.from('calendar_events').select(eventSelect).gte('starts_at', start).lt('starts_at', end).order('starts_at'),
+    supabase.from('calendar_events').select(eventSelect).neq('recurrence', 'none').lte('starts_at', end),
+  ]);
+  if (oneOffRes.error) throw oneOffRes.error;
+  if (recurringRes.error) throw recurringRes.error;
 
-  if (error) throw error;
-  return ((data ?? []) as unknown as EventRow[]).map(mapEvent);
+  const oneOff = ((oneOffRes.data ?? []) as unknown as EventRow[]).map(mapEvent);
+  const occurrences = ((recurringRes.data ?? []) as unknown as EventRow[])
+    .map(mapEvent)
+    // the series' own start day is already covered by the one-off query
+    .filter((e) => toDateKey(new Date(e.startsAt)) !== date && occursOnKey(e.startsAt, e.recurrence, e.recurrenceEnd, date))
+    .map((e) => occurrenceFor(e, date));
+
+  return [...oneOff, ...occurrences].sort((a, b) => (a.startsAt < b.startsAt ? -1 : a.startsAt > b.startsAt ? 1 : 0));
 }
 
 export async function loadEventDays(startKey: string, endKey: string): Promise<string[]> {
-  const start = new Date(`${startKey}T00:00:00`).toISOString();
-  const end = new Date(`${endKey}T23:59:59`).toISOString();
-  const { data, error } = await supabase
-    .from('calendar_events')
-    .select('starts_at')
-    .gte('starts_at', start)
-    .lte('starts_at', end);
-  if (error) throw error;
-  return ((data ?? []) as Array<{ starts_at: string }>).map((row) => toDateKey(new Date(row.starts_at)));
+  const startIso = new Date(`${startKey}T00:00:00`).toISOString();
+  const endIso = new Date(`${endKey}T23:59:59`).toISOString();
+  const [oneOffRes, recurringRes] = await Promise.all([
+    supabase.from('calendar_events').select('starts_at').gte('starts_at', startIso).lte('starts_at', endIso),
+    supabase.from('calendar_events').select('starts_at, recurrence, recurrence_end').neq('recurrence', 'none').lte('starts_at', endIso),
+  ]);
+  if (oneOffRes.error) throw oneOffRes.error;
+  if (recurringRes.error) throw recurringRes.error;
+
+  const days = new Set<string>();
+  for (const row of (oneOffRes.data ?? []) as Array<{ starts_at: string }>) days.add(toDateKey(new Date(row.starts_at)));
+  const range = eachDateKey(startKey, endKey);
+  for (const row of (recurringRes.data ?? []) as Array<{ starts_at: string; recurrence: Recurrence | null; recurrence_end: string | null }>) {
+    for (const key of range) {
+      if (occursOnKey(row.starts_at, row.recurrence ?? 'none', row.recurrence_end, key)) days.add(key);
+    }
+  }
+  return [...days];
 }
 
 export async function createCalendarEvent({
@@ -108,6 +184,8 @@ export async function createCalendarEvent({
   location,
   description,
   assigneeIds,
+  recurrence = 'none',
+  recurrenceEnd = null,
 }: {
   householdId: string;
   title: string;
@@ -118,6 +196,8 @@ export async function createCalendarEvent({
   location: string;
   description: string;
   assigneeIds: string[];
+  recurrence?: Recurrence;
+  recurrenceEnd?: string | null;
 }) {
   const startsAt = new Date(`${date}T${allDay ? '00:00' : startTime}:00`);
   const endsAt = allDay ? null : new Date(`${date}T${endTime}:00`);
@@ -139,6 +219,8 @@ export async function createCalendarEvent({
       location: location.trim() || null,
       description: description.trim() || null,
       all_day: allDay,
+      recurrence,
+      recurrence_end: recurrence === 'none' ? null : (recurrenceEnd || null),
     })
     .select(eventSelect)
     .single();
@@ -169,6 +251,7 @@ export async function updateCalendarEvent({ id, ...values }: Parameters<typeof c
   const { error: eventError } = await supabase.from('calendar_events').update({
     title: values.title.trim(), starts_at: startsAt.toISOString(), ends_at: endsAt?.toISOString() ?? null,
     all_day: values.allDay, location: values.location.trim() || null, description: values.description.trim() || null,
+    recurrence: values.recurrence ?? 'none', recurrence_end: (values.recurrence ?? 'none') === 'none' ? null : (values.recurrenceEnd || null),
   }).eq('id', id);
   if (eventError) throw eventError;
 
