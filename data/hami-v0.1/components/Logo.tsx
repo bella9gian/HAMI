@@ -1,16 +1,21 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '@/constants/theme';
+import { Image, StyleSheet, View } from 'react-native';
 
-// Native fallback (web renders the SVG emblem in Logo.web.tsx).
+// HAMI emblem: a rumah Batak (traditional Batak house, for the Siagian side)
+// with the Chinese surname 陈 (Chen/Chan) on its gable. Shared by web + native.
 export function Logo({ size = 132 }: { size?: number }) {
   return (
-    <View style={[s.wrap, { width: size, height: size, borderRadius: size / 2 }]}>
-      <Text style={s.char}>陈</Text>
+    <View style={[s.wrap, { width: size, height: size, borderRadius: size * 0.22 }]}>
+      <Image
+        source={require('@/assets/hami-logo.jpg')}
+        style={{ width: size, height: size }}
+        resizeMode="cover"
+        accessibilityLabel="HAMI"
+      />
     </View>
   );
 }
 
 const s = StyleSheet.create({
-  wrap: { backgroundColor: colors.forestSoft, alignItems: 'center', justifyContent: 'center' },
-  char: { fontSize: 48, fontWeight: '800', color: colors.forest },
+  // Matches the artwork's own cream background so the square blends seamlessly.
+  wrap: { backgroundColor: '#FCEBD6', overflow: 'hidden' },
 });
