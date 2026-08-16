@@ -6,15 +6,22 @@ import { Screen } from '@/components/Screen';
 import { Card } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { loadHouseholdContext } from '@/lib/members';
-import { addSupplement, deleteSupplement, loadSupplements, Supplement, updateSupplement } from '@/lib/supplements';
+import { toDateKey } from '@/lib/calendar';
+import { addSupplement, deleteSupplement, isLow, loadDoses, loadSupplements, setInventory, Supplement, takeDose, updateSupplement } from '@/lib/supplements';
+
+const since = () => { const d = new Date(); d.setDate(d.getDate() - 30); return toDateKey(d); };
+const num = (v: string): number | null => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : null; };
 
 export default function Supplements() {
   const router = useRouter();
+  const todayKey = toDateKey();
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const [meId, setMeId] = useState<string | null>(null);
   const [items, setItems] = useState<Supplement[]>([]);
+  const [doses, setDoses] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const [showNew, setShowNew] = useState(false);
@@ -25,6 +32,8 @@ export default function Supplements() {
   const [schedule, setSchedule] = useState('');
   const [notes, setNotes] = useState('');
   const [active, setActive] = useState(true);
+  const [invText, setInvText] = useState('');
+  const [lowText, setLowText] = useState('');
 
   useEffect(() => { void load(); }, []);
 
@@ -34,16 +43,18 @@ export default function Supplements() {
       const ctx = await loadHouseholdContext();
       setHouseholdId(ctx.householdId); setMeId(ctx.currentMember.id);
       setItems(await loadSupplements());
+      setDoses(await loadDoses(since()));
     } catch (e: any) { setError(e?.message ?? 'Unable to load supplements.'); }
     finally { setLoading(false); }
   }
-  async function refresh() { setItems(await loadSupplements()); }
+  async function refresh() { setItems(await loadSupplements()); setDoses(await loadDoses(since())); }
 
-  function reset() { setName(''); setDosage(''); setSchedule(''); setNotes(''); setActive(true); setConfirmDelete(false); }
+  function reset() { setName(''); setDosage(''); setSchedule(''); setNotes(''); setActive(true); setInvText(''); setLowText(''); setConfirmDelete(false); }
   function openNew() { reset(); setEditing(null); setShowNew(true); }
   function startEdit(x: Supplement) {
     if (editing?.id === x.id) { setEditing(null); return; }
     setName(x.name); setDosage(x.dosage ?? ''); setSchedule(x.schedule ?? ''); setNotes(x.notes ?? ''); setActive(x.isActive);
+    setInvText(x.inventoryCount != null ? String(x.inventoryCount) : ''); setLowText(x.lowThreshold != null ? String(x.lowThreshold) : '');
     setConfirmDelete(false); setShowNew(false); setEditing(x);
   }
   function closeForms() { setShowNew(false); setEditing(null); reset(); }
@@ -52,12 +63,26 @@ export default function Supplements() {
     if (!name.trim() || !householdId || !meId) { setError('Add a supplement name.'); return; }
     setSaving(true); setError('');
     try {
-      const values = { name, dosage, schedule, notes, isActive: active };
+      const values = { name, dosage, schedule, notes, isActive: active, inventoryCount: num(invText), lowThreshold: num(lowText) };
       if (editing) await updateSupplement(editing.id, values);
       else await addSupplement({ ...values, householdId, createdBy: meId });
       await refresh(); closeForms();
     } catch (e: any) { setError(e?.message ?? 'Unable to save this supplement.'); }
     finally { setSaving(false); }
+  }
+
+  async function doTake(x: Supplement) {
+    if (!meId) return;
+    setBusyId(x.id); setError('');
+    try { await takeDose(x, meId); await refresh(); }
+    catch (e: any) { setError(e?.message ?? 'Unable to log this dose.'); }
+    finally { setBusyId(null); }
+  }
+  async function restock(x: Supplement, delta: number) {
+    setBusyId(x.id); setError('');
+    try { await setInventory(x.id, Math.max(0, (x.inventoryCount ?? 0) + delta)); await refresh(); }
+    catch (e: any) { setError(e?.message ?? 'Unable to update inventory.'); }
+    finally { setBusyId(null); }
   }
   async function remove() {
     if (!editing) return;
@@ -75,6 +100,10 @@ export default function Supplements() {
         <View style={s.field}><Text style={s.label}>Name</Text><TextInput value={name} onChangeText={setName} placeholder="e.g. Vitamin D" placeholderTextColor={colors.muted} style={s.input}/></View>
         <View style={s.field}><Text style={s.label}>Dosage</Text><TextInput value={dosage} onChangeText={setDosage} placeholder="e.g. 2000 IU" placeholderTextColor={colors.muted} style={s.input}/></View>
         <View style={s.field}><Text style={s.label}>Schedule</Text><TextInput value={schedule} onChangeText={setSchedule} placeholder="e.g. Morning, with food" placeholderTextColor={colors.muted} style={s.input}/></View>
+        <View style={s.two}>
+          <View style={[s.field, s.flex]}><Text style={s.label}>Inventory</Text><TextInput value={invText} onChangeText={setInvText} keyboardType="number-pad" placeholder="units on hand" placeholderTextColor={colors.muted} style={s.input}/></View>
+          <View style={[s.field, s.flex]}><Text style={s.label}>Low alert at</Text><TextInput value={lowText} onChangeText={setLowText} keyboardType="number-pad" placeholder="default 5" placeholderTextColor={colors.muted} style={s.input}/></View>
+        </View>
         <View style={s.field}><Text style={s.label}>Notes</Text><TextInput value={notes} onChangeText={setNotes} placeholder="Notes (optional)" placeholderTextColor={colors.muted} multiline style={[s.input, s.multi]}/></View>
         <View style={s.head}><Text style={s.label}>Active</Text><Switch value={active} onValueChange={setActive} trackColor={{ false: colors.border, true: colors.forestSoft }} thumbColor={active ? colors.forest : '#fff'}/></View>
         {!!error && <Text style={s.error}>{error}</Text>}
@@ -108,13 +137,38 @@ export default function Supplements() {
         <Card>
           {items.map((x, i) => {
             const m = meta(x);
+            const takenToday = (doses[x.id] ?? []).filter((t) => toDateKey(new Date(t)) === todayKey).length;
+            const low = isLow(x);
+            const inv = x.inventoryCount;
+            const stock = inv == null ? null : inv === 0 ? 'Out of stock' : `${inv} left`;
             return (
               <View key={x.id}>
                 <Pressable onPress={() => startEdit(x)} style={[s.row, (i < items.length - 1 || editing?.id === x.id) && s.sep]}>
                   <View style={[s.icon, !x.isActive && s.iconOff]}><Ionicons name="medical-outline" size={18} color={x.isActive ? colors.forest : colors.muted}/></View>
-                  <View style={{ flex: 1 }}><Text style={[s.name, !x.isActive && s.dim]}>{x.name}</Text>{!!m && <Text style={s.metaText}>{m}</Text>}</View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.name, !x.isActive && s.dim]}>{x.name}</Text>
+                    {!!m && <Text style={s.metaText}>{m}</Text>}
+                    <View style={s.statusRow}>
+                      {stock && <Text style={[s.stock, low && s.stockLow]}>{stock}</Text>}
+                      {takenToday > 0 && <Text style={s.metaText}>{takenToday} taken today</Text>}
+                    </View>
+                  </View>
+                  {x.isActive && (
+                    <Pressable onPress={() => doTake(x)} disabled={busyId === x.id || inv === 0} style={[s.take, (busyId === x.id || inv === 0) && s.takeOff]}>
+                      {busyId === x.id ? <ActivityIndicator size="small" color={colors.forest}/> : <Text style={s.takeText}>Take</Text>}
+                    </Pressable>
+                  )}
                   <Ionicons name={editing?.id === x.id ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted}/>
                 </Pressable>
+                {editing?.id === x.id && (
+                  <View style={s.restockRow}>
+                    <Text style={s.label}>Inventory</Text>
+                    <Pressable onPress={() => restock(x, -1)} style={s.stepBtn}><Ionicons name="remove" size={18} color={colors.forest}/></Pressable>
+                    <Text style={s.stepValue}>{x.inventoryCount ?? '—'}</Text>
+                    <Pressable onPress={() => restock(x, 1)} style={s.stepBtn}><Ionicons name="add" size={18} color={colors.forest}/></Pressable>
+                    <Pressable onPress={() => restock(x, 30)} style={s.restock}><Text style={s.action}>+30</Text></Pressable>
+                  </View>
+                )}
                 {editing?.id === x.id && form(true)}
               </View>
             );
@@ -133,9 +187,21 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   field: { gap: 6 },
+  two: { flexDirection: 'row', gap: 10 },
+  flex: { flex: 1 },
   label: { color: colors.text, fontWeight: '700' },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, color: colors.text, backgroundColor: '#fff', minHeight: 44 },
   multi: { minHeight: 70, textAlignVertical: 'top' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 3 },
+  stock: { fontSize: 12, fontWeight: '700', color: colors.forest },
+  stockLow: { color: colors.clay },
+  take: { paddingHorizontal: 14, height: 34, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.forest, alignItems: 'center', justifyContent: 'center' },
+  takeOff: { opacity: 0.4 },
+  takeText: { color: colors.forest, fontWeight: '800', fontSize: 13 },
+  restockRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  stepBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: 16, fontWeight: '800', color: colors.text, minWidth: 34, textAlign: 'center' },
+  restock: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.forestSoft },
   error: { color: '#A33', fontSize: 13 },
   action: { color: colors.forest, fontWeight: '700' },
   save: { minHeight: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.forest, borderRadius: radius.sm },

@@ -1,22 +1,33 @@
 import { toDateKey } from '@/lib/calendar';
 import { supabase } from '@/lib/supabase';
 
+export type Frequency = 'daily' | 'weekly';
+
 export type Habit = {
   id: string;
   name: string;
   notes: string | null;
   isActive: boolean;
+  frequency: Frequency;
+  weeklyTarget: number | null;
 };
 
-type Row = { id: string; name: string; notes: string | null; is_active: boolean };
-const select = 'id, name, notes, is_active';
-const map = (r: Row): Habit => ({ id: r.id, name: r.name, notes: r.notes, isActive: r.is_active });
+type Row = { id: string; name: string; notes: string | null; is_active: boolean; frequency: Frequency; weekly_target: number | null };
+const select = 'id, name, notes, is_active, frequency, weekly_target';
+const map = (r: Row): Habit => ({ id: r.id, name: r.name, notes: r.notes, isActive: r.is_active, frequency: r.frequency ?? 'daily', weeklyTarget: r.weekly_target });
 
-export type HabitInput = { name: string; notes?: string; isActive?: boolean };
+export type HabitInput = { name: string; notes?: string; isActive?: boolean; frequency?: Frequency; weeklyTarget?: number | null };
 function toColumns(input: HabitInput) {
   const name = input.name.trim();
   if (!name) throw new Error('Add a habit name.');
-  return { name, notes: input.notes?.trim() || null, is_active: input.isActive ?? true };
+  const frequency: Frequency = input.frequency ?? 'daily';
+  return {
+    name,
+    notes: input.notes?.trim() || null,
+    is_active: input.isActive ?? true,
+    frequency,
+    weekly_target: frequency === 'weekly' ? Math.max(1, Math.min(7, input.weeklyTarget ?? 3)) : null,
+  };
 }
 
 export async function loadHabits(): Promise<Habit[]> {
@@ -60,6 +71,7 @@ export async function setHabitDone(habitId: string, dateKey: string, done: boole
 }
 
 const prevDay = (key: string) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() - 1); return toDateKey(d); };
+const shiftKey = (key: string, delta: number) => { const d = new Date(`${key}T12:00:00`); d.setDate(d.getDate() + delta); return toDateKey(d); };
 
 /** Current streak: consecutive done days ending today (today may still be pending). */
 export function currentStreak(days: Set<string> | undefined, todayKey = toDateKey()): number {
@@ -67,5 +79,48 @@ export function currentStreak(days: Set<string> | undefined, todayKey = toDateKe
   let cursor = days.has(todayKey) ? todayKey : prevDay(todayKey);
   let streak = 0;
   while (days.has(cursor)) { streak++; cursor = prevDay(cursor); }
+  return streak;
+}
+
+/** Longest run of consecutive done days ever seen in `days`. */
+export function bestStreak(days: Set<string> | undefined): number {
+  if (!days || days.size === 0) return 0;
+  const sorted = [...days].sort();
+  let best = 1, run = 1;
+  for (let i = 1; i < sorted.length; i++) {
+    run = shiftKey(sorted[i - 1], 1) === sorted[i] ? run + 1 : 1;
+    if (run > best) best = run;
+  }
+  return best;
+}
+
+/** Monday (as a date key) of the week containing `key`. */
+export function weekStartKey(key: string): string {
+  const d = new Date(`${key}T12:00:00`);
+  const mondayOffset = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - mondayOffset);
+  return toDateKey(d);
+}
+
+/** How many done days fall in the same week as `todayKey`. */
+export function weekDoneCount(days: Set<string> | undefined, todayKey = toDateKey()): number {
+  if (!days) return 0;
+  const week = weekStartKey(todayKey);
+  let count = 0;
+  days.forEach((k) => { if (weekStartKey(k) === week) count++; });
+  return count;
+}
+
+/** Consecutive weeks (ending at the current week) that met `target`. The
+ *  in-progress current week only counts once it has already met the target. */
+export function weeklyStreak(days: Set<string> | undefined, target: number, todayKey = toDateKey()): number {
+  if (!days || target <= 0) return 0;
+  const counts = new Map<string, number>();
+  days.forEach((k) => { const w = weekStartKey(k); counts.set(w, (counts.get(w) ?? 0) + 1); });
+  const met = (w: string) => (counts.get(w) ?? 0) >= target;
+  let cursor = weekStartKey(todayKey);
+  if (!met(cursor)) cursor = shiftKey(cursor, -7); // current week still in progress
+  let streak = 0;
+  while (met(cursor)) { streak++; cursor = shiftKey(cursor, -7); }
   return streak;
 }
