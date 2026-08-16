@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { Card, Check } from '@/components/ui';
+import { Card } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { colors, radius } from '@/constants/theme';
 import { toDateKey } from '@/lib/calendar';
@@ -162,7 +162,9 @@ export default function Habits() {
             return (
               <View key={h.id}>
                 <View style={[s.row, (i < habits.length - 1 || editing?.id === h.id) && s.sep]}>
-                  <Pressable onPress={() => toggleToday(h)} accessibilityLabel={done ? 'Mark not done today' : 'Mark done today'}><Check done={done}/></Pressable>
+                  <Pressable onPress={() => toggleToday(h)} hitSlop={10} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={done ? 'Mark not done today' : 'Mark done today'} style={[s.done, done && s.doneOn]}>
+                    <Ionicons name="checkmark" size={20} color={done ? '#fff' : '#CFC8BE'}/>
+                  </Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => startEdit(h)}>
                     <Text style={[s.name, !h.isActive && s.dim]}>{h.name}</Text>
                     <Text style={s.metaText}>{meta}{!h.isActive ? ' · paused' : ''}</Text>
@@ -208,6 +210,8 @@ const s = StyleSheet.create({
   deleteText: { color: '#A33', fontWeight: '700' },
   loading: { minHeight: 160, alignItems: 'center', justifyContent: 'center', gap: 8 },
   message: { gap: 7 },
+  done: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: colors.forest, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  doneOn: { backgroundColor: colors.forest, borderColor: colors.forest },
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12 },
   sep: { borderBottomWidth: 1, borderBottomColor: colors.border },
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
