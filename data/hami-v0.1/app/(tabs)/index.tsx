@@ -34,6 +34,8 @@ export default function Today() {
   const [password, setPassword] = useState('');
 
   const [error, setError] = useState('');
+  const [info, setInfo] = useState('');
+  const [resetting, setResetting] = useState(false);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
   const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [dueChores, setDueChores] = useState<Chore[]>([]);
@@ -160,6 +162,25 @@ export default function Today() {
     await supabase.auth.signOut();
   }
 
+  async function sendPasswordReset() {
+    setError('');
+    setInfo('');
+    const target = email.trim();
+    if (!target) { setError('Enter your email above, then tap “Forgot password?”.'); return; }
+    setResetting(true);
+    try {
+      const redirectTo =
+        typeof window !== 'undefined' ? `${window.location.origin}/reset` : undefined;
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(target, { redirectTo });
+      if (resetError) throw resetError;
+      setInfo(`If an account exists for ${target}, a password reset link is on its way.`);
+    } catch (err: any) {
+      setError(err?.message ?? 'Unable to send a reset link right now.');
+    } finally {
+      setResetting(false);
+    }
+  }
+
   if (loading) {
     return (
       <Screen>
@@ -202,9 +223,14 @@ export default function Today() {
             />
 
             {!!error && <Text style={s.error}>{error}</Text>}
+            {!!info && <Text style={s.info}>{info}</Text>}
 
             <Pressable style={s.button} onPress={signIn}>
               <Text style={s.buttonText}>Sign in to HAMI</Text>
+            </Pressable>
+
+            <Pressable onPress={sendPasswordReset} disabled={resetting} style={s.forgot} hitSlop={8}>
+              <Text style={s.forgotText}>{resetting ? 'Sending reset link…' : 'Forgot password?'}</Text>
             </Pressable>
           </Card>
         </View>
@@ -430,6 +456,24 @@ const s = StyleSheet.create({
   error: {
     color: '#a33',
     fontSize: 13,
+  },
+
+  info: {
+    color: colors.success,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+
+  forgot: {
+    alignItems: 'center',
+    paddingVertical: 6,
+    marginTop: 2,
+  },
+
+  forgotText: {
+    color: colors.forest,
+    fontWeight: '700',
+    fontSize: 14,
   },
 
   top: {
