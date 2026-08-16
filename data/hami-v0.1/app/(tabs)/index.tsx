@@ -23,7 +23,7 @@ import { CalendarEvent, FamilyMember, formatEventTime, loadEventsForDate, subscr
 import { supabase } from '@/lib/supabase';
 import { loadTodos, subscribeToTodoChanges, Todo } from '@/lib/todos';
 import { Chore, loadChores, subscribeToChoreChanges } from '@/lib/chores';
-import { loadMenuForDate, menuLabel, MenuEntry } from '@/lib/menu';
+import { loadMenuForDate, MEALS, menuLabel, MenuEntry } from '@/lib/menu';
 
 export default function Today() {
   const router = useRouter();
@@ -311,7 +311,7 @@ export default function Today() {
       <SectionTitle title="Today's menu" action="Menu" />
       <Pressable onPress={() => router.push('/more/menu')}>
         <Card>
-          {todayMenu.length === 0 ? <Text style={s.meta}>No meals planned today.</Text> : todayMenu.map((entry, index) => (
+          {todayMenu.length === 0 ? <Text style={s.meta}>No meals planned today.</Text> : [...todayMenu].sort((a, b) => MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal)).map((entry, index) => (
             <View key={entry.id} style={[s.todoRow, index < todayMenu.length - 1 && s.sep]}>
               <Ionicons name="restaurant-outline" size={20} color={colors.clay}/>
               <View style={{ flex: 1 }}><Text style={s.eventTitle}>{menuLabel(entry)}</Text><Text style={s.meta}>{entry.meal.charAt(0).toUpperCase() + entry.meal.slice(1)}</Text></View>
