@@ -7,15 +7,32 @@ import { ScreenHeader } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { modules } from '@/data/mock';
 import { applyOrder, loadTileOrder, saveTileOrder } from '@/lib/tileOrder';
+import { isHouseholdAdmin, loadCurrentMember } from '@/lib/members';
 
 type Module = (typeof modules)[number];
 
+const HOUSEHOLD_ROUTE = '/more/household';
+// Household is admin-only; hide it by default until we confirm the viewer is Bella.
+const nonAdminModules = modules.filter((m) => m.route !== HOUSEHOLD_ROUTE);
+
 export default function More() {
   const router = useRouter();
-  const [items, setItems] = useState<Module[]>(modules);
+  const [items, setItems] = useState<Module[]>(nonAdminModules);
   const [editing, setEditing] = useState(false);
 
-  useEffect(() => { void loadTileOrder().then((order) => setItems(applyOrder(modules, order))); }, []);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      const [order, member] = await Promise.all([
+        loadTileOrder(),
+        loadCurrentMember().catch(() => null),
+      ]);
+      if (!active) return;
+      const base = isHouseholdAdmin(member) ? modules : nonAdminModules;
+      setItems(applyOrder(base, order));
+    })();
+    return () => { active = false; };
+  }, []);
 
   function move(index: number, delta: number) {
     setItems((current) => {

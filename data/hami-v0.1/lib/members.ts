@@ -19,6 +19,28 @@ export type HouseholdContext = {
 
 const memberSelect = 'id, household_id, display_name, first_name, relationship, user_id, is_active';
 
+/**
+ * Only the household admin (Bella) may view and manage the Household page.
+ * Identified by name on her member record — the app has a single admin.
+ */
+export function isHouseholdAdmin(member?: Pick<FamilyMember, 'first_name' | 'display_name'> | null): boolean {
+  const name = (member?.first_name || member?.display_name || '').trim().toLowerCase();
+  return name === 'bella';
+}
+
+/** The signed-in user's own member record (lighter than loadHouseholdContext). */
+export async function loadCurrentMember(): Promise<FamilyMember> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error('Sign in on Today to continue.');
+  const { data, error } = await supabase
+    .from('family_members')
+    .select(memberSelect)
+    .eq('user_id', session.user.id)
+    .single();
+  if (error) throw error;
+  return data as FamilyMember;
+}
+
 const listeners = new Set<() => void>();
 export function subscribeToMemberChanges(listener: () => void) {
   listeners.add(listener);

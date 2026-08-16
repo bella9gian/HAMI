@@ -9,6 +9,7 @@ import { FamilyMember } from '@/lib/calendar';
 import {
   addMember,
   deactivateMember,
+  isHouseholdAdmin,
   loadHouseholdContext,
   RELATIONSHIP_OPTIONS,
   updateMember,
@@ -18,6 +19,7 @@ export default function Household() {
   const router = useRouter();
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const [members, setMembers] = useState<FamilyMember[]>([]);
+  const [allowed, setAllowed] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -36,6 +38,11 @@ export default function Household() {
     setError('');
     try {
       const ctx = await loadHouseholdContext();
+      if (!isHouseholdAdmin(ctx.currentMember)) {
+        setAllowed(false);
+        return;
+      }
+      setAllowed(true);
       setHouseholdId(ctx.householdId);
       setMembers(ctx.members);
     } catch (e: any) {
@@ -109,11 +116,22 @@ export default function Household() {
       <View style={s.head}>
         <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()} />
         <Text style={s.title}>Household</Text>
-        <Pressable accessibilityLabel="Add member" onPress={openNew}>
-          <Ionicons name="add" size={26} color={colors.forest} />
-        </Pressable>
+        {allowed ? (
+          <Pressable accessibilityLabel="Add member" onPress={openNew}>
+            <Ionicons name="add" size={26} color={colors.forest} />
+          </Pressable>
+        ) : <View style={{ width: 26 }} />}
       </View>
 
+      {!loading && !allowed ? (
+        <Card style={s.message}>
+          <View style={s.lock}><Ionicons name="lock-closed-outline" size={26} color={colors.forest} /></View>
+          <Text style={s.restrictedTitle}>Household is private</Text>
+          <Text style={s.meta}>Only Bella can view and manage the household members.</Text>
+          <Pressable onPress={() => router.back()}><Text style={s.action}>Go back</Text></Pressable>
+        </Card>
+      ) : (
+      <>
       {showForm && (
         <Card style={s.form}>
           <View style={s.formHead}>
@@ -214,6 +232,8 @@ export default function Household() {
           </Pressable>
         </>
       )}
+      </>
+      )}
     </Screen>
   );
 }
@@ -238,6 +258,8 @@ const s = StyleSheet.create({
   hint: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   loading: { minHeight: 180, alignItems: 'center', justifyContent: 'center', gap: 8 },
   message: { gap: 7 },
+  lock: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.forestSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  restrictedTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
   error: { color: '#A33', fontSize: 13 },
   action: { color: colors.forest, fontWeight: '700' },
   sectionText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.7, color: colors.muted, textTransform: 'uppercase', marginBottom: 10 },
