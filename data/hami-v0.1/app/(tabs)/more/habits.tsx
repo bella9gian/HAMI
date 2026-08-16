@@ -7,7 +7,7 @@ import { Card, Check } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { toDateKey } from '@/lib/calendar';
 import { loadHouseholdContext } from '@/lib/members';
-import { addHabit, currentStreak, deleteHabit, Habit, loadHabitLogs, loadHabits, setHabitDone, updateHabit } from '@/lib/habits';
+import { addHabit, bestStreak, currentStreak, deleteHabit, Frequency, Habit, loadHabitLogs, loadHabits, setHabitDone, updateHabit, weekDoneCount, weeklyStreak } from '@/lib/habits';
 
 const since = () => { const d = new Date(); d.setDate(d.getDate() - 90); return toDateKey(d); };
 
@@ -28,6 +28,8 @@ export default function Habits() {
   const [name, setName] = useState('');
   const [notes, setNotes] = useState('');
   const [active, setActive] = useState(true);
+  const [frequency, setFrequency] = useState<Frequency>('daily');
+  const [weeklyTarget, setWeeklyTarget] = useState(3);
 
   useEffect(() => { void load(); }, []);
 
@@ -43,11 +45,11 @@ export default function Habits() {
   }
   async function refresh() { setHabits(await loadHabits()); setLogs(await loadHabitLogs(since())); }
 
-  function reset() { setName(''); setNotes(''); setActive(true); setConfirmDelete(false); }
+  function reset() { setName(''); setNotes(''); setActive(true); setFrequency('daily'); setWeeklyTarget(3); setConfirmDelete(false); }
   function openNew() { reset(); setEditing(null); setShowNew(true); }
   function startEdit(h: Habit) {
     if (editing?.id === h.id) { setEditing(null); return; }
-    setName(h.name); setNotes(h.notes ?? ''); setActive(h.isActive); setConfirmDelete(false); setShowNew(false); setEditing(h);
+    setName(h.name); setNotes(h.notes ?? ''); setActive(h.isActive); setFrequency(h.frequency); setWeeklyTarget(h.weeklyTarget ?? 3); setConfirmDelete(false); setShowNew(false); setEditing(h);
   }
   function closeForms() { setShowNew(false); setEditing(null); reset(); }
 
@@ -55,7 +57,7 @@ export default function Habits() {
     if (!name.trim() || !householdId || !meId) { setError('Add a habit name.'); return; }
     setSaving(true); setError('');
     try {
-      const values = { name, notes, isActive: active };
+      const values = { name, notes, isActive: active, frequency, weeklyTarget };
       if (editing) await updateHabit(editing.id, values);
       else await addHabit({ ...values, householdId, createdBy: meId });
       await refresh(); closeForms();
@@ -82,6 +84,26 @@ export default function Habits() {
       <Card style={isEdit ? s.inlineForm : s.form}>
         <View style={s.head}><Text style={s.formTitle}>{isEdit ? 'Edit habit' : 'New habit'}</Text><Pressable onPress={closeForms}><Ionicons name="close" size={22} color={colors.muted}/></Pressable></View>
         <View style={s.field}><Text style={s.label}>Name</Text><TextInput value={name} onChangeText={setName} placeholder="e.g. Drink water" placeholderTextColor={colors.muted} style={s.input}/></View>
+        <View style={s.field}>
+          <Text style={s.label}>Frequency</Text>
+          <View style={s.pills}>
+            {(['daily', 'weekly'] as Frequency[]).map((f) => (
+              <Pressable key={f} onPress={() => setFrequency(f)} style={[s.pill, frequency === f && s.pillOn]}>
+                <Text style={[s.pillText, frequency === f && s.pillTextOn]}>{f === 'daily' ? 'Daily' : 'Weekly'}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        {frequency === 'weekly' && (
+          <View style={s.field}>
+            <Text style={s.label}>Times per week</Text>
+            <View style={s.stepper}>
+              <Pressable onPress={() => setWeeklyTarget((n) => Math.max(1, n - 1))} style={s.stepBtn}><Ionicons name="remove" size={20} color={colors.forest}/></Pressable>
+              <Text style={s.stepValue}>{weeklyTarget}×</Text>
+              <Pressable onPress={() => setWeeklyTarget((n) => Math.min(7, n + 1))} style={s.stepBtn}><Ionicons name="add" size={20} color={colors.forest}/></Pressable>
+            </View>
+          </View>
+        )}
         <View style={s.field}><Text style={s.label}>Notes</Text><TextInput value={notes} onChangeText={setNotes} placeholder="Notes (optional)" placeholderTextColor={colors.muted} multiline style={[s.input, s.multi]}/></View>
         {!!error && <Text style={s.error}>{error}</Text>}
         <Pressable disabled={saving} onPress={save} style={s.save}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.white}>{isEdit ? 'Save changes' : 'Add habit'}</Text>}</Pressable>
@@ -110,14 +132,24 @@ export default function Habits() {
         <Card>
           {habits.map((h, i) => {
             const done = logs[h.id]?.has(todayKey) ?? false;
-            const streak = currentStreak(logs[h.id], todayKey);
+            let meta: string;
+            if (h.frequency === 'weekly') {
+              const target = h.weeklyTarget ?? 1;
+              const progress = weekDoneCount(logs[h.id], todayKey);
+              const wStreak = weeklyStreak(logs[h.id], target, todayKey);
+              meta = `${progress}/${target} this week${wStreak > 0 ? ` · 🔥 ${wStreak} wk` : ''}`;
+            } else {
+              const streak = currentStreak(logs[h.id], todayKey);
+              const best = bestStreak(logs[h.id]);
+              meta = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}${best > streak ? ` · best ${best}` : ''}` : (best > 0 ? `No streak now · best ${best}` : 'No streak yet');
+            }
             return (
               <View key={h.id}>
                 <View style={[s.row, (i < habits.length - 1 || editing?.id === h.id) && s.sep]}>
                   <Pressable onPress={() => toggleToday(h)} accessibilityLabel={done ? 'Mark not done today' : 'Mark done today'}><Check done={done}/></Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => startEdit(h)}>
                     <Text style={[s.name, !h.isActive && s.dim]}>{h.name}</Text>
-                    <Text style={s.metaText}>{streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'} streak` : 'No streak yet'}{!h.isActive ? ' · paused' : ''}</Text>
+                    <Text style={s.metaText}>{meta}{!h.isActive ? ' · paused' : ''}</Text>
                   </Pressable>
                   <Pressable onPress={() => startEdit(h)}><Ionicons name={editing?.id === h.id ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted}/></Pressable>
                 </View>
@@ -140,6 +172,14 @@ const s = StyleSheet.create({
   formTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   field: { gap: 6 },
   label: { color: colors.text, fontWeight: '700' },
+  pills: { flexDirection: 'row', gap: 8 },
+  pill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff' },
+  pillOn: { backgroundColor: colors.forest, borderColor: colors.forest },
+  pillText: { color: colors.text, fontWeight: '700' },
+  pillTextOn: { color: '#fff' },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  stepBtn: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  stepValue: { fontSize: 18, fontWeight: '800', color: colors.text, minWidth: 40, textAlign: 'center' },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, color: colors.text, backgroundColor: '#fff', minHeight: 44 },
   multi: { minHeight: 70, textAlignVertical: 'top' },
   error: { color: '#A33', fontSize: 13 },
