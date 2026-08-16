@@ -10,13 +10,15 @@ export type Habit = {
   isActive: boolean;
   frequency: Frequency;
   weeklyTarget: number | null;
+  startDate: string | null;
+  endDate: string | null;
 };
 
-type Row = { id: string; name: string; notes: string | null; is_active: boolean; frequency: Frequency; weekly_target: number | null };
-const select = 'id, name, notes, is_active, frequency, weekly_target';
-const map = (r: Row): Habit => ({ id: r.id, name: r.name, notes: r.notes, isActive: r.is_active, frequency: r.frequency ?? 'daily', weeklyTarget: r.weekly_target });
+type Row = { id: string; name: string; notes: string | null; is_active: boolean; frequency: Frequency; weekly_target: number | null; start_date: string | null; end_date: string | null };
+const select = 'id, name, notes, is_active, frequency, weekly_target, start_date, end_date';
+const map = (r: Row): Habit => ({ id: r.id, name: r.name, notes: r.notes, isActive: r.is_active, frequency: r.frequency ?? 'daily', weeklyTarget: r.weekly_target, startDate: r.start_date, endDate: r.end_date });
 
-export type HabitInput = { name: string; notes?: string; isActive?: boolean; frequency?: Frequency; weeklyTarget?: number | null };
+export type HabitInput = { name: string; notes?: string; isActive?: boolean; frequency?: Frequency; weeklyTarget?: number | null; startDate?: string | null; endDate?: string | null };
 function toColumns(input: HabitInput) {
   const name = input.name.trim();
   if (!name) throw new Error('Add a habit name.');
@@ -27,6 +29,8 @@ function toColumns(input: HabitInput) {
     is_active: input.isActive ?? true,
     frequency,
     weekly_target: frequency === 'weekly' ? Math.max(1, Math.min(7, input.weeklyTarget ?? 3)) : null,
+    start_date: input.startDate || null,
+    end_date: input.endDate || null,
   };
 }
 
@@ -61,11 +65,12 @@ export async function loadHabitLogs(sinceKey: string): Promise<Record<string, Se
 }
 
 export async function setHabitDone(habitId: string, dateKey: string, done: boolean): Promise<void> {
+  // Clear any existing entry for the day first so this works whether or not a
+  // unique (habit_id, on_date) constraint exists on the table.
+  const { error: delError } = await supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('on_date', dateKey);
+  if (delError) throw delError;
   if (done) {
-    const { error } = await supabase.from('habit_logs').upsert({ habit_id: habitId, on_date: dateKey }, { onConflict: 'habit_id,on_date' });
-    if (error) throw error;
-  } else {
-    const { error } = await supabase.from('habit_logs').delete().eq('habit_id', habitId).eq('on_date', dateKey);
+    const { error } = await supabase.from('habit_logs').insert({ habit_id: habitId, on_date: dateKey });
     if (error) throw error;
   }
 }

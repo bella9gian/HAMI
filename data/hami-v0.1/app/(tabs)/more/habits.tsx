@@ -4,8 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { Card, Check } from '@/components/ui';
+import { DateField } from '@/components/DateField';
 import { colors, radius } from '@/constants/theme';
 import { toDateKey } from '@/lib/calendar';
+
+const fmtDate = (k: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(`${k}T12:00:00`));
 import { loadHouseholdContext } from '@/lib/members';
 import { addHabit, bestStreak, currentStreak, deleteHabit, Frequency, Habit, loadHabitLogs, loadHabits, setHabitDone, updateHabit, weekDoneCount, weeklyStreak } from '@/lib/habits';
 
@@ -30,6 +33,8 @@ export default function Habits() {
   const [active, setActive] = useState(true);
   const [frequency, setFrequency] = useState<Frequency>('daily');
   const [weeklyTarget, setWeeklyTarget] = useState(3);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   useEffect(() => { void load(); }, []);
 
@@ -45,11 +50,11 @@ export default function Habits() {
   }
   async function refresh() { setHabits(await loadHabits()); setLogs(await loadHabitLogs(since())); }
 
-  function reset() { setName(''); setNotes(''); setActive(true); setFrequency('daily'); setWeeklyTarget(3); setConfirmDelete(false); }
+  function reset() { setName(''); setNotes(''); setActive(true); setFrequency('daily'); setWeeklyTarget(3); setStartDate(''); setEndDate(''); setConfirmDelete(false); }
   function openNew() { reset(); setEditing(null); setShowNew(true); }
   function startEdit(h: Habit) {
     if (editing?.id === h.id) { setEditing(null); return; }
-    setName(h.name); setNotes(h.notes ?? ''); setActive(h.isActive); setFrequency(h.frequency); setWeeklyTarget(h.weeklyTarget ?? 3); setConfirmDelete(false); setShowNew(false); setEditing(h);
+    setName(h.name); setNotes(h.notes ?? ''); setActive(h.isActive); setFrequency(h.frequency); setWeeklyTarget(h.weeklyTarget ?? 3); setStartDate(h.startDate ?? ''); setEndDate(h.endDate ?? ''); setConfirmDelete(false); setShowNew(false); setEditing(h);
   }
   function closeForms() { setShowNew(false); setEditing(null); reset(); }
 
@@ -57,7 +62,7 @@ export default function Habits() {
     if (!name.trim() || !householdId || !meId) { setError('Add a habit name.'); return; }
     setSaving(true); setError('');
     try {
-      const values = { name, notes, isActive: active, frequency, weeklyTarget };
+      const values = { name, notes, isActive: active, frequency, weeklyTarget, startDate, endDate };
       if (editing) await updateHabit(editing.id, values);
       else await addHabit({ ...values, householdId, createdBy: meId });
       await refresh(); closeForms();
@@ -104,6 +109,10 @@ export default function Habits() {
             </View>
           </View>
         )}
+        <View style={s.two}>
+          <View style={[s.field, s.flex]}><Text style={s.label}>Start date</Text><DateField value={startDate} onChange={setStartDate} mode="date"/></View>
+          <View style={[s.field, s.flex]}><Text style={s.label}>End date</Text><DateField value={endDate} onChange={setEndDate} mode="date"/></View>
+        </View>
         <View style={s.field}><Text style={s.label}>Notes</Text><TextInput value={notes} onChangeText={setNotes} placeholder="Notes (optional)" placeholderTextColor={colors.muted} multiline style={[s.input, s.multi]}/></View>
         {!!error && <Text style={s.error}>{error}</Text>}
         <Pressable disabled={saving} onPress={save} style={s.save}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.white}>{isEdit ? 'Save changes' : 'Add habit'}</Text>}</Pressable>
@@ -132,8 +141,14 @@ export default function Habits() {
         <Card>
           {habits.map((h, i) => {
             const done = logs[h.id]?.has(todayKey) ?? false;
+            const notStarted = h.startDate && h.startDate > todayKey;
+            const ended = h.endDate && h.endDate < todayKey;
             let meta: string;
-            if (h.frequency === 'weekly') {
+            if (notStarted) {
+              meta = `Starts ${fmtDate(h.startDate!)}`;
+            } else if (ended) {
+              meta = `Ended ${fmtDate(h.endDate!)}`;
+            } else if (h.frequency === 'weekly') {
               const target = h.weeklyTarget ?? 1;
               const progress = weekDoneCount(logs[h.id], todayKey);
               const wStreak = weeklyStreak(logs[h.id], target, todayKey);
@@ -143,6 +158,7 @@ export default function Habits() {
               const best = bestStreak(logs[h.id]);
               meta = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}${best > streak ? ` · best ${best}` : ''}` : (best > 0 ? `No streak now · best ${best}` : 'No streak yet');
             }
+            if (!notStarted && !ended && h.endDate) meta += ` · ends ${fmtDate(h.endDate)}`;
             return (
               <View key={h.id}>
                 <View style={[s.row, (i < habits.length - 1 || editing?.id === h.id) && s.sep]}>
@@ -171,6 +187,8 @@ const s = StyleSheet.create({
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   formTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   field: { gap: 6 },
+  two: { flexDirection: 'row', gap: 10 },
+  flex: { flex: 1 },
   label: { color: colors.text, fontWeight: '700' },
   pills: { flexDirection: 'row', gap: 8 },
   pill: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: radius.sm, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff' },
