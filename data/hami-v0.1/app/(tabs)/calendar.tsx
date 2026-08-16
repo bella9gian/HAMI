@@ -36,6 +36,7 @@ export default function Calendar() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true); const [saving, setSaving] = useState(false); const [error, setError] = useState(''); const [showForm, setShowForm] = useState(false); const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null); const [confirmDelete, setConfirmDelete] = useState(false);
   const [title, setTitle] = useState(''); const [date, setDate] = useState(toDateKey()); const [startTime, setStartTime] = useState('09:00'); const [endTime, setEndTime] = useState('10:00'); const [allDay, setAllDay] = useState(false); const [location, setLocation] = useState(''); const [description, setDescription] = useState(''); const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [recurrence, setRecurrence] = useState<Recurrence>('none'); const [recurrenceEnd, setRecurrenceEnd] = useState('');
@@ -138,11 +139,11 @@ export default function Calendar() {
     setLoading(true); setError('');
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) { setError('Sign in on Today to view the family calendar.'); setLoading(false); return; }
-    const { data: me, error: meError } = await supabase.from('family_members').select('household_id').eq('user_id', session.user.id).single();
+    const { data: me, error: meError } = await supabase.from('family_members').select('id, household_id').eq('user_id', session.user.id).single();
     if (meError) { setError(meError.message); setLoading(false); return; }
     const { data: family, error: familyError } = await supabase.from('family_members').select('id, display_name, first_name, relationship, user_id').eq('household_id', me.household_id).eq('is_active', true).order('created_at');
     if (familyError) { setError(familyError.message); setLoading(false); return; }
-    setHouseholdId(me.household_id); setMembers(family ?? []);
+    setHouseholdId(me.household_id); setCurrentMemberId(me.id); setMembers(family ?? []);
   }
 
   async function loadEvents() { setLoading(true); setError(''); try { setEvents(await loadEventsForDate(selectedDate)); } catch (err: any) { setError(err?.message ?? 'Unable to load calendar events.'); } finally { setLoading(false); } }
@@ -154,9 +155,9 @@ export default function Calendar() {
     setEditingEvent(target); setConfirmDelete(false); setTitle(target.title); setDate(toDateKey(start)); setStartTime(start.toTimeString().slice(0, 5)); setEndTime(end?.toTimeString().slice(0, 5) ?? '10:00'); setAllDay(target.allDay); setLocation(target.location ?? ''); setDescription(target.description ?? ''); setAssigneeIds(target.assignees.map((member) => member.id)); setRecurrence(target.recurrence); setRecurrenceEnd(target.recurrenceEnd ?? ''); setShowForm(true);
   }
   async function saveEvent() {
-    if (!householdId || !title.trim()) { setError('Add an event title before saving.'); return; }
+    if (!householdId || !currentMemberId || !title.trim()) { setError('Add an event title before saving.'); return; }
     setSaving(true); setError('');
-    try { const values = { householdId, title, date, startTime, endTime, allDay, location, description, assigneeIds, recurrence, recurrenceEnd: recurrenceEnd || null }; if (editingEvent) await updateCalendarEvent({ ...values, id: editingEvent.id }); else await createCalendarEvent(values); setSelectedDate(date); setEvents(await loadEventsForDate(date)); await refreshEventDays(); await refreshRange(); setShowForm(false); resetForm(); }
+    try { const values = { householdId, createdBy: currentMemberId, title, date, startTime, endTime, allDay, location, description, assigneeIds, recurrence, recurrenceEnd: recurrenceEnd || null }; if (editingEvent) await updateCalendarEvent({ ...values, id: editingEvent.id }); else await createCalendarEvent(values); setSelectedDate(date); setEvents(await loadEventsForDate(date)); await refreshEventDays(); await refreshRange(); setShowForm(false); resetForm(); }
     catch (err: any) { setError(err?.message ?? 'Unable to save this event.'); } finally { setSaving(false); }
   }
   async function removeEvent() { if (!editingEvent) return; if (!confirmDelete) { setConfirmDelete(true); return; } setSaving(true); setError(''); try { await deleteCalendarEvent(editingEvent.id); setEvents(await loadEventsForDate(selectedDate)); await refreshEventDays(); await refreshRange(); setShowForm(false); resetForm(); } catch (err: any) { setError(err?.message ?? 'Unable to delete this event.'); } finally { setSaving(false); } }

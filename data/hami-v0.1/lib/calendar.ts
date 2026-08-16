@@ -211,8 +211,10 @@ export async function createCalendarEvent({
   assigneeIds,
   recurrence = 'none',
   recurrenceEnd = null,
+  createdBy,
 }: {
   householdId: string;
+  createdBy: string;
   title: string;
   date: string;
   startTime: string;
@@ -238,6 +240,7 @@ export async function createCalendarEvent({
     .from('calendar_events')
     .insert({
       household_id: householdId,
+      created_by: createdBy,
       title: title.trim(),
       starts_at: startsAt.toISOString(),
       ends_at: endsAt?.toISOString() ?? null,

@@ -32,6 +32,7 @@ function daysInRange(a: string, b: string): string[] { const out: string[] = [];
 export default function Menu() {
   const router = useRouter();
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(toDateKey());
   const [entriesByDate, setEntriesByDate] = useState<Record<string, MenuEntry[]>>({});
@@ -61,6 +62,7 @@ export default function Menu() {
     try {
       const ctx = await loadHouseholdContext();
       setHouseholdId(ctx.householdId);
+      setCurrentMemberId(ctx.currentMember.id);
       setRecipes(await loadRecipes());
       const [a, b] = rangeFor(viewMode, selectedDate);
       setEntriesByDate(await loadMenuForRange(a, b));
@@ -82,10 +84,10 @@ export default function Menu() {
   const navLabel = viewMode === 'month' ? monthFormatter.format(dateFromKey(selectedDate)) : viewMode === 'week' ? `Week of ${shortDay.format(dateFromKey(rangeFor('week', selectedDate)[0]))}` : dayFormatter.format(dateFromKey(selectedDate));
 
   async function add() {
-    if (!householdId) return;
+    if (!householdId || !currentMemberId) return;
     if (!addRecipeId && !addTitle.trim()) { setError('Pick a recipe or type what you are having.'); return; }
     setSaving(true); setError('');
-    try { await addMenuEntry({ householdId, onDate: selectedDate, meal: addMeal, recipeId: addRecipeId || null, title: addTitle }); setAddRecipeId(''); setAddTitle(''); await refresh(); }
+    try { await addMenuEntry({ householdId, createdBy: currentMemberId, onDate: selectedDate, meal: addMeal, recipeId: addRecipeId || null, title: addTitle }); setAddRecipeId(''); setAddTitle(''); await refresh(); }
     catch (e: any) { setError(e?.message ?? 'Unable to add this meal.'); }
     finally { setSaving(false); }
   }
@@ -106,16 +108,16 @@ export default function Menu() {
     catch (e: any) { setError(e?.message ?? 'Unable to remove this meal.'); }
   }
   async function copy(entry: MenuEntry) {
-    if (!householdId || !copyDate) return;
+    if (!householdId || !currentMemberId || !copyDate) return;
     setSaving(true); setError('');
-    try { await copyMenuEntry(entry, householdId, copyDate); setNote(`Copied to ${shortDay.format(dateFromKey(copyDate))}.`); await refresh(); }
+    try { await copyMenuEntry(entry, householdId, currentMemberId, copyDate); setNote(`Copied to ${shortDay.format(dateFromKey(copyDate))}.`); await refresh(); }
     catch (e: any) { setError(e?.message ?? 'Unable to copy this meal.'); }
     finally { setSaving(false); }
   }
   async function repeat(entry: MenuEntry) {
-    if (!householdId || !repeatUntil) { setError('Pick a "repeat until" date.'); return; }
+    if (!householdId || !currentMemberId || !repeatUntil) { setError('Pick a "repeat until" date.'); return; }
     setSaving(true); setError('');
-    try { const n = await repeatMenuEntry(entry, householdId, repeatFreq, repeatUntil); setNote(`Added ${n} ${repeatFreq} cop${n === 1 ? 'y' : 'ies'}.`); await refresh(); }
+    try { const n = await repeatMenuEntry(entry, householdId, currentMemberId, repeatFreq, repeatUntil); setNote(`Added ${n} ${repeatFreq} cop${n === 1 ? 'y' : 'ies'}.`); await refresh(); }
     catch (e: any) { setError(e?.message ?? 'Unable to repeat this meal.'); }
     finally { setSaving(false); }
   }

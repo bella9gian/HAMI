@@ -38,8 +38,8 @@ export async function loadTrips(): Promise<Trip[]> {
   return ((data ?? []) as TripRow[]).map(mapTrip);
 }
 
-export async function addTrip(input: TripInput & { householdId: string }): Promise<void> {
-  const { error } = await supabase.from('trips').insert({ household_id: input.householdId, ...tripColumns(input) });
+export async function addTrip(input: TripInput & { householdId: string; createdBy: string }): Promise<void> {
+  const { error } = await supabase.from('trips').insert({ household_id: input.householdId, created_by: input.createdBy, ...tripColumns(input) });
   if (error) throw error;
 }
 export async function updateTrip(id: string, input: TripInput): Promise<void> {
