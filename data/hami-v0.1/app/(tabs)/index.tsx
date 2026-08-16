@@ -321,57 +321,39 @@ export default function Today() {
       </Pressable>
 
       <SectionTitle title="Due chores" action={`${dueChores.length} due`} />
+      <Pressable onPress={() => router.push('/chores')}>
       <Card>{dueChores.length === 0 ? <Text style={s.meta}>No chores due right now.</Text> : dueChores.slice(0, 4).map((chore, index) => <View key={chore.id} style={[s.todoRow, index < Math.min(dueChores.length, 4) - 1 && s.sep]}><Ionicons name="brush-outline" size={20} color={colors.clay}/><View style={{flex:1}}><Text style={s.eventTitle}>{chore.title}</Text><Text style={s.meta}>{chore.room || 'Around the house'}</Text></View><MemberChips ids={chore.assignees.map(member => member.id)} memberOptions={chore.assignees}/></View>)}</Card>
+      </Pressable>
 
       <SectionTitle title="Quick add" />
 
       <View style={s.quickRow}>
-        <QuickButton
-          icon="calendar-outline"
-          label="Event"
-          onPress={() => router.push({ pathname: '/(tabs)/calendar', params: { new: '1' } })}
-        />
-        <QuickButton
-          icon="checkbox-outline"
-          label="Task"
-          onPress={() => router.push({ pathname: '/(tabs)/todo', params: { new: '1' } })}
-        />
-        <QuickButton
-          icon="document-text-outline"
-          label="Note"
-          onPress={() => router.push({ pathname: '/(tabs)/todo', params: { new: '1' } })}
-        />
-        <QuickButton
-          icon="camera-outline"
-          label="Photo"
-          onPress={() => router.push('/more/photos')}
-        />
+        <QuickButton icon="leaf-outline" label="Habits" onPress={() => router.push('/more/habits')} />
+        <QuickButton icon="medical-outline" label="Supplements" onPress={() => router.push('/more/supplements')} />
+        <QuickButton icon="cart-outline" label="Shopping" onPress={() => router.push('/more/shopping')} />
+        <QuickButton icon="airplane-outline" label="Trips" onPress={() => router.push('/more/trips')} />
       </View>
 
       <SectionTitle title="Coming up" />
 
       <View style={s.two}>
-        <Card style={s.mini}>
-          <Text style={s.miniEyebrow}>TRIP</Text>
-          <Text style={s.miniTitle}>Hawaii</Text>
-          <Text style={s.meta}>5 days to go</Text>
-          <Ionicons
-            name="airplane-outline"
-            size={24}
-            color={colors.forest}
-          />
-        </Card>
+        <Pressable style={s.miniWrap} onPress={() => router.push('/more/trips')}>
+          <Card style={s.mini}>
+            <Text style={s.miniEyebrow}>TRIP</Text>
+            <Text style={s.miniTitle}>Hawaii</Text>
+            <Text style={s.meta}>5 days to go</Text>
+            <Ionicons name="airplane-outline" size={24} color={colors.forest} />
+          </Card>
+        </Pressable>
 
-        <Card style={s.mini}>
-          <Text style={s.miniEyebrow}>HOME</Text>
-          <Text style={s.miniTitle}>{dueChores.length} chores due</Text>
-          <Text style={s.meta}>{dueChores.filter(chore => chore.assignees.some(member => member.id === currentMember?.id)).length} assigned to you</Text>
-          <Ionicons
-            name="home-outline"
-            size={24}
-            color={colors.clay}
-          />
-        </Card>
+        <Pressable style={s.miniWrap} onPress={() => router.push('/chores')}>
+          <Card style={s.mini}>
+            <Text style={s.miniEyebrow}>HOME</Text>
+            <Text style={s.miniTitle}>{dueChores.length} chores due</Text>
+            <Text style={s.meta}>{dueChores.filter(chore => chore.assignees.some(member => member.id === currentMember?.id)).length} assigned to you</Text>
+            <Ionicons name="home-outline" size={24} color={colors.clay} />
+          </Card>
+        </Pressable>
       </View>
     </Screen>
   );
@@ -567,6 +549,10 @@ const s = StyleSheet.create({
   two: {
     flexDirection: 'row',
     gap: 10,
+  },
+
+  miniWrap: {
+    flex: 1,
   },
 
   mini: {
