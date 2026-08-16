@@ -1,7 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Tabs } from 'expo-router';
 import { ColorValue, StyleSheet, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
 
 type IconName = 'home' | 'menu' | 'todo' | 'chores' | 'calendar' | 'more';
 
@@ -34,11 +36,22 @@ function TabIcon({ name, color }: { name: IconName; color: ColorValue }) {
 }
 
 export default function TabsLayout() {
+  // The tab bar belongs to the signed-in app — keep it hidden on the sign-in
+  // screen so no icons show during login.
+  const [authed, setAuthed] = useState(false);
+  useEffect(() => {
+    void supabase.auth.getSession().then(({ data: { session } }) => setAuthed(!!session?.user));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setAuthed(!!session?.user));
+    return () => subscription.unsubscribe();
+  }, []);
+
   return <Tabs screenOptions={({ route }) => ({
     headerShown: false,
     tabBarActiveTintColor: colors.forest,
     tabBarInactiveTintColor: '#817B74',
-    tabBarStyle: { height: 78, paddingTop: 8, paddingBottom: 12, backgroundColor: '#FFFDFC', borderTopColor: colors.border },
+    tabBarStyle: authed
+      ? { height: 78, paddingTop: 8, paddingBottom: 12, backgroundColor: '#FFFDFC', borderTopColor: colors.border }
+      : { display: 'none' },
     tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
     tabBarIcon: ({ color }) => <TabIcon name={items[route.name]?.icon ?? 'more'} color={color}/>,
     title: items[route.name]?.label ?? route.name,
