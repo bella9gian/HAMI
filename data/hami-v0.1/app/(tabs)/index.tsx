@@ -241,7 +241,7 @@ export default function Today() {
   const firstName =
     currentMember?.first_name ||
     currentMember?.display_name ||
-    'Bella';
+    'friend';
 
   return (
     <Screen>
