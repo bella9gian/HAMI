@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
@@ -9,6 +9,8 @@ import { colors, radius } from '@/constants/theme';
 import { toDateKey } from '@/lib/calendar';
 
 const fmtDate = (k: string) => new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(new Date(`${k}T12:00:00`));
+const dow = (k: string) => new Intl.DateTimeFormat(undefined, { weekday: 'narrow' }).format(new Date(`${k}T12:00:00`));
+const dnum = (k: string) => new Date(`${k}T12:00:00`).getDate();
 import { loadHouseholdContext } from '@/lib/members';
 import { addHabit, bestStreak, currentStreak, deleteHabit, Frequency, Habit, loadHabitLogs, loadHabits, setHabitDone, updateHabit, weekDoneCount, weeklyStreak } from '@/lib/habits';
 
@@ -77,11 +79,19 @@ export default function Habits() {
     catch (e: any) { setError(e?.message ?? 'Unable to delete this habit.'); }
     finally { setSaving(false); }
   }
-  async function toggleToday(h: Habit) {
-    const done = logs[h.id]?.has(todayKey) ?? false;
-    setLogs((prev) => { const next = { ...prev }; const set = new Set(next[h.id] ?? []); if (done) set.delete(todayKey); else set.add(todayKey); next[h.id] = set; return next; });
-    try { await setHabitDone(h.id, todayKey, !done); }
+  async function toggle(h: Habit, dateKey: string) {
+    const done = logs[h.id]?.has(dateKey) ?? false;
+    setLogs((prev) => { const next = { ...prev }; const set = new Set(next[h.id] ?? []); if (done) set.delete(dateKey); else set.add(dateKey); next[h.id] = set; return next; });
+    try { await setHabitDone(h.id, dateKey, !done); }
     catch (e: any) { setError(e?.message ?? 'Unable to update this habit.'); await refresh(); }
+  }
+
+  // Recent days (oldest→today) for backfilling a streak.
+  function lastDays(n: number): string[] {
+    const out: string[] = [];
+    const base = new Date(`${todayKey}T12:00:00`);
+    for (let i = n - 1; i >= 0; i--) { const d = new Date(base); d.setDate(d.getDate() - i); out.push(toDateKey(d)); }
+    return out;
   }
 
   function form(isEdit: boolean) {
@@ -162,7 +172,7 @@ export default function Habits() {
             return (
               <View key={h.id}>
                 <View style={[s.row, (i < habits.length - 1 || editing?.id === h.id) && s.sep]}>
-                  <Pressable onPress={() => toggleToday(h)} hitSlop={10} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={done ? 'Mark not done today' : 'Mark done today'} style={[s.done, done && s.doneOn]}>
+                  <Pressable onPress={() => toggle(h, todayKey)} hitSlop={10} accessibilityRole="checkbox" accessibilityState={{ checked: done }} accessibilityLabel={done ? 'Mark not done today' : 'Mark done today'} style={[s.done, done && s.doneOn]}>
                     <Ionicons name="checkmark" size={20} color={done ? '#fff' : '#CFC8BE'}/>
                   </Pressable>
                   <Pressable style={{ flex: 1 }} onPress={() => startEdit(h)}>
@@ -171,6 +181,23 @@ export default function Habits() {
                   </Pressable>
                   <Pressable onPress={() => startEdit(h)}><Ionicons name={editing?.id === h.id ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted}/></Pressable>
                 </View>
+                {editing?.id === h.id && (
+                  <View style={s.history}>
+                    <Text style={s.historyLabel}>Tap a day to backfill</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.historyRow}>
+                      {lastDays(21).map((k) => {
+                        const dDone = logs[h.id]?.has(k) ?? false;
+                        return (
+                          <Pressable key={k} onPress={() => toggle(h, k)} style={s.dayCell} accessibilityLabel={`${k}${dDone ? ' done' : ''}`}>
+                            <Text style={s.dayDow}>{dow(k)}</Text>
+                            <View style={[s.dayDot, dDone && s.dayDotOn, k === todayKey && s.dayDotToday]}>{dDone && <Ionicons name="checkmark" size={13} color="#fff"/>}</View>
+                            <Text style={s.dayNum}>{dnum(k)}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
                 {editing?.id === h.id && form(true)}
               </View>
             );
@@ -212,6 +239,15 @@ const s = StyleSheet.create({
   message: { gap: 7 },
   done: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, borderColor: colors.forest, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   doneOn: { backgroundColor: colors.forest, borderColor: colors.forest },
+  history: { gap: 8, paddingVertical: 10 },
+  historyLabel: { fontSize: 12, fontWeight: '700', color: colors.muted },
+  historyRow: { gap: 8, paddingRight: 8 },
+  dayCell: { alignItems: 'center', gap: 4, width: 32 },
+  dayDow: { fontSize: 10, color: colors.muted, fontWeight: '700' },
+  dayDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 1.5, borderColor: colors.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  dayDotOn: { backgroundColor: colors.forest, borderColor: colors.forest },
+  dayDotToday: { borderColor: colors.forest, borderWidth: 2 },
+  dayNum: { fontSize: 11, color: colors.text, fontWeight: '600' },
   row: { minHeight: 60, flexDirection: 'row', alignItems: 'center', gap: 12 },
   sep: { borderBottomWidth: 1, borderBottomColor: colors.border },
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
