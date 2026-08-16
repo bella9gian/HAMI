@@ -90,18 +90,38 @@ returns boolean language sql stable security definer set search_path = public as
   select public.can_see_trip(trip_id) from public.trip_tasks where id = ttid;
 $$;
 
+-- "Am I assigned/added?" helpers. SECURITY DEFINER so a parent policy can test
+-- them without triggering the child table's RLS (which would recurse). They
+-- read only the child join table, so they're also safe in an INSERT WITH CHECK.
+create or replace function public.me_assigned_event(eid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.calendar_event_assignees a
+                 where a.event_id = eid and a.family_member_id in (select public.my_member_ids()));
+$$;
+create or replace function public.me_assigned_todo(tid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.todo_assignees a
+                 where a.todo_id = tid and a.family_member_id in (select public.my_member_ids()));
+$$;
+create or replace function public.me_assigned_chore(cid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.chore_assignees a
+                 where a.chore_id = cid and a.family_member_id in (select public.my_member_ids()));
+$$;
+create or replace function public.me_trip_member(tid uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.trip_members m
+                 where m.trip_id = tid and m.family_member_id in (select public.my_member_ids()));
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 2. Assignable items (core, always present): creator OR anyone assigned.
 -- ---------------------------------------------------------------------------
 drop policy if exists "household members manage events" on public.calendar_events;
 drop policy if exists "own or assigned events" on public.calendar_events;
 create policy "own or assigned events" on public.calendar_events for all
-  using (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.calendar_event_assignees a where a.event_id = calendar_events.id and a.family_member_id in (select public.my_member_ids()))))
-  with check (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.calendar_event_assignees a where a.event_id = calendar_events.id and a.family_member_id in (select public.my_member_ids()))));
+  using (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_event(id)))
+  with check (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_event(id)));
 
 drop policy if exists "household members manage event assignees" on public.calendar_event_assignees;
 drop policy if exists "assignees of visible events" on public.calendar_event_assignees;
@@ -111,12 +131,8 @@ create policy "assignees of visible events" on public.calendar_event_assignees f
 drop policy if exists "household members manage todos" on public.todos;
 drop policy if exists "own or assigned todos" on public.todos;
 create policy "own or assigned todos" on public.todos for all
-  using (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.todo_assignees a where a.todo_id = todos.id and a.family_member_id in (select public.my_member_ids()))))
-  with check (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.todo_assignees a where a.todo_id = todos.id and a.family_member_id in (select public.my_member_ids()))));
+  using (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_todo(id)))
+  with check (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_todo(id)));
 
 drop policy if exists "household members manage todo assignees" on public.todo_assignees;
 drop policy if exists "assignees of visible todos" on public.todo_assignees;
@@ -126,12 +142,8 @@ create policy "assignees of visible todos" on public.todo_assignees for all
 drop policy if exists "household members manage chores" on public.chores;
 drop policy if exists "own or assigned chores" on public.chores;
 create policy "own or assigned chores" on public.chores for all
-  using (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.chore_assignees a where a.chore_id = chores.id and a.family_member_id in (select public.my_member_ids()))))
-  with check (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.chore_assignees a where a.chore_id = chores.id and a.family_member_id in (select public.my_member_ids()))));
+  using (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_chore(id)))
+  with check (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_assigned_chore(id)));
 
 drop policy if exists "household members manage chore assignees" on public.chore_assignees;
 drop policy if exists "assignees of visible chores" on public.chore_assignees;
@@ -149,12 +161,8 @@ create policy "completions of visible chores" on public.chore_completions for al
 drop policy if exists "household members manage trips" on public.trips;
 drop policy if exists "own or member trips" on public.trips;
 create policy "own or member trips" on public.trips for all
-  using (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.trip_members m where m.trip_id = trips.id and m.family_member_id in (select public.my_member_ids()))))
-  with check (public.is_household_member(household_id) and (
-    created_by in (select public.my_member_ids())
-    or exists (select 1 from public.trip_members m where m.trip_id = trips.id and m.family_member_id in (select public.my_member_ids()))));
+  using (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_trip_member(id)))
+  with check (public.is_household_member(household_id) and (created_by in (select public.my_member_ids()) or public.me_trip_member(id)));
 
 drop policy if exists "household members manage trip members" on public.trip_members;
 drop policy if exists "members of visible trips" on public.trip_members;
