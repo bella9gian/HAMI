@@ -19,7 +19,7 @@ const monthFormatter = new Intl.DateTimeFormat(undefined, { month: 'long', year:
 const dateFromKey = (key: string) => new Date(`${key}T12:00:00`);
 const shiftKey = (key: string, delta: number) => { const d = dateFromKey(key); d.setDate(d.getDate() + delta); return toDateKey(d); };
 const mealLabel = (m: Meal) => m.charAt(0).toUpperCase() + m.slice(1);
-const mealOrder: Record<Meal, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
+const mealOrder: Record<Meal, number> = { breakfast: 0, lunch: 1, snack: 2, dinner: 3 };
 
 type ViewMode = 'day' | 'week' | 'month';
 function rangeFor(mode: ViewMode, key: string): [string, string] {

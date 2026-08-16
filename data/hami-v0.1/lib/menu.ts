@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 
 export type Meal = 'breakfast' | 'lunch' | 'dinner' | 'snack';
-export const MEALS: Meal[] = ['breakfast', 'lunch', 'dinner', 'snack'];
+export const MEALS: Meal[] = ['breakfast', 'lunch', 'snack', 'dinner'];
 
 export type MenuEntry = {
   id: string;
