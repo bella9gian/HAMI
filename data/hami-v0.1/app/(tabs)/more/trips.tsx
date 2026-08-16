@@ -32,6 +32,7 @@ function countdown(t: Trip): string | null {
 export default function Trips() {
   const router = useRouter();
   const [householdId, setHouseholdId] = useState<string | null>(null);
+  const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,6 +58,7 @@ export default function Trips() {
     try {
       const ctx = await loadHouseholdContext();
       setHouseholdId(ctx.householdId);
+      setCurrentMemberId(ctx.currentMember.id);
       setTrips(await loadTrips());
     } catch (e: any) { setError(e?.message ?? 'Unable to load trips.'); }
     finally { setLoading(false); }
@@ -72,12 +74,12 @@ export default function Trips() {
   function closeForms() { setShowNew(false); setEditingId(null); reset(); }
 
   async function save() {
-    if (!name.trim() || !householdId) { setError('Add a trip name.'); return; }
+    if (!name.trim() || !householdId || !currentMemberId) { setError('Add a trip name.'); return; }
     setSaving(true); setError('');
     try {
       const values = { name, destination, startsOn, endsOn, notes };
       if (editingId) await updateTrip(editingId, values);
-      else await addTrip({ ...values, householdId });
+      else await addTrip({ ...values, householdId, createdBy: currentMemberId });
       await refresh(); closeForms();
     } catch (e: any) { setError(e?.message ?? 'Unable to save this trip.'); }
     finally { setSaving(false); }

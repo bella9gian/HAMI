@@ -41,6 +41,7 @@ export async function loadMenuForDate(dateKey: string): Promise<MenuEntry[]> {
 
 export async function addMenuEntry(input: {
   householdId: string;
+  createdBy: string;
   onDate: string;
   meal: Meal;
   recipeId?: string | null;
@@ -51,6 +52,7 @@ export async function addMenuEntry(input: {
   if (!recipeId && !title) throw new Error('Pick a recipe or type what you are having.');
   const { error } = await supabase.from('menu_entries').insert({
     household_id: input.householdId,
+    created_by: input.createdBy,
     on_date: input.onDate,
     meal: input.meal,
     recipe_id: recipeId,
@@ -87,23 +89,23 @@ const shiftKey = (key: string, delta: number) => {
   return new Date(d.getTime() - off).toISOString().slice(0, 10);
 };
 
-function rowFor(entry: MenuEntry, householdId: string, dateKey: string) {
-  return { household_id: householdId, on_date: dateKey, meal: entry.meal, recipe_id: entry.recipeId, title: entry.recipeId ? null : entry.title };
+function rowFor(entry: MenuEntry, householdId: string, createdBy: string, dateKey: string) {
+  return { household_id: householdId, created_by: createdBy, on_date: dateKey, meal: entry.meal, recipe_id: entry.recipeId, title: entry.recipeId ? null : entry.title };
 }
 
 /** Duplicate a menu entry onto another day. */
-export async function copyMenuEntry(entry: MenuEntry, householdId: string, targetDateKey: string): Promise<void> {
-  const { error } = await supabase.from('menu_entries').insert(rowFor(entry, householdId, targetDateKey));
+export async function copyMenuEntry(entry: MenuEntry, householdId: string, createdBy: string, targetDateKey: string): Promise<void> {
+  const { error } = await supabase.from('menu_entries').insert(rowFor(entry, householdId, createdBy, targetDateKey));
   if (error) throw error;
 }
 
 /** Repeat a menu entry daily/weekly from the day after its date through `untilKey`. */
-export async function repeatMenuEntry(entry: MenuEntry, householdId: string, frequency: 'daily' | 'weekly', untilKey: string): Promise<number> {
+export async function repeatMenuEntry(entry: MenuEntry, householdId: string, createdBy: string, frequency: 'daily' | 'weekly', untilKey: string): Promise<number> {
   const step = frequency === 'weekly' ? 7 : 1;
   const rows: ReturnType<typeof rowFor>[] = [];
   let cursor = shiftKey(entry.onDate, step);
   let guard = 0;
-  while (cursor <= untilKey && guard < 366) { rows.push(rowFor(entry, householdId, cursor)); cursor = shiftKey(cursor, step); guard++; }
+  while (cursor <= untilKey && guard < 366) { rows.push(rowFor(entry, householdId, createdBy, cursor)); cursor = shiftKey(cursor, step); guard++; }
   if (rows.length) { const { error } = await supabase.from('menu_entries').insert(rows); if (error) throw error; }
   return rows.length;
 }
