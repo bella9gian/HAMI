@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { ScreenHeader } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { modules } from '@/data/mock';
@@ -55,7 +56,7 @@ export default function More() {
         {items.map((m, index) => (
           <Pressable
             key={m.route}
-            onPress={() => { if (!editing) router.push(m.route as any); }}
+            onPress={() => { if (!editing) router.push({ pathname: m.route as any, params: { from: 'more' } }); }}
             style={[s.tile, { backgroundColor: m.tint }]}
           >
             <View style={s.tileTop}>

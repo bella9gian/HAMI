@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { FamilyMember } from '@/lib/calendar';
@@ -114,7 +115,7 @@ export default function Household() {
   return (
     <Screen>
       <View style={s.head}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')} />
+        <BackButton />
         <Text style={s.title}>Household</Text>
         {allowed ? (
           <Pressable accessibilityLabel="Add member" onPress={openNew}>
@@ -128,7 +129,7 @@ export default function Household() {
           <View style={s.lock}><Ionicons name="lock-closed-outline" size={26} color={colors.forest} /></View>
           <Text style={s.restrictedTitle}>Household is private</Text>
           <Text style={s.meta}>Only Bella can view and manage the household members.</Text>
-          <Pressable onPress={() => router.navigate('/')}><Text style={s.action}>Go back</Text></Pressable>
+          <Pressable onPress={() => router.back()}><Text style={s.action}>Go back</Text></Pressable>
         </Card>
       ) : (
       <>

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { colors, radius } from '@/constants/theme';
@@ -185,7 +186,7 @@ export default function Menu() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
+        <BackButton />
         <Text style={s.title}>Menu</Text>
         <Pressable onPress={() => setSelectedDate(toDateKey())}><Text style={s.todayBtn}>Today</Text></Pressable>
       </View>

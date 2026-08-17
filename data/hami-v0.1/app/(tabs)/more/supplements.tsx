@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Switch, Text, TextInput, View
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { loadHouseholdContext } from '@/lib/members';
@@ -121,7 +122,7 @@ export default function Supplements() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
+        <BackButton />
         <Text style={s.title}>Supplements</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add supplement"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>

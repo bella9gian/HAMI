@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/ui';
 import { DateField } from '@/components/DateField';
 import { colors, radius } from '@/constants/theme';
@@ -134,7 +135,7 @@ export default function Habits() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
+        <BackButton />
         <Text style={s.title}>Habits</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add habit"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>
