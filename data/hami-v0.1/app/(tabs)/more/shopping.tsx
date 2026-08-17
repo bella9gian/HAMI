@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { DateField } from '@/components/DateField';
 import { Card, Check } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
@@ -143,7 +144,7 @@ export default function Shopping() {
   return (
     <Screen>
       <View style={s.head}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
+        <BackButton />
         <Text style={s.title}>Shopping</Text>
         <View style={{ width: 25 }}/>
       </View>

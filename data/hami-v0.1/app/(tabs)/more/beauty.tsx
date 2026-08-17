@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
+import { BackButton } from '@/components/BackButton';
 import { Card } from '@/components/ui';
 import { colors, radius } from '@/constants/theme';
 import { loadHouseholdContext } from '@/lib/members';
@@ -97,7 +98,7 @@ export default function Beauty() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
+        <BackButton />
         <Text style={s.title}>Beauty</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add product"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>
