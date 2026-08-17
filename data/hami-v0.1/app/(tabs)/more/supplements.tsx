@@ -11,6 +11,7 @@ import { addSupplement, deleteSupplement, isLow, loadDoses, loadSupplements, set
 
 const since = () => { const d = new Date(); d.setDate(d.getDate() - 30); return toDateKey(d); };
 const num = (v: string): number | null => { const n = parseInt(v, 10); return Number.isFinite(n) && n >= 0 ? n : null; };
+const fmtDose = (t: string) => new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(t));
 
 export default function Supplements() {
   const router = useRouter();
@@ -120,7 +121,7 @@ export default function Supplements() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Supplements</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add supplement"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>
@@ -169,6 +170,21 @@ export default function Supplements() {
                     <Pressable onPress={() => restock(x, 30)} style={s.restock}><Text style={s.action}>+30</Text></Pressable>
                   </View>
                 )}
+                {editing?.id === x.id && (
+                  <View style={s.history}>
+                    <Text style={s.label}>Dose history</Text>
+                    {(doses[x.id]?.length ?? 0) === 0 ? (
+                      <Text style={s.metaText}>No doses logged in the last 30 days. Tap “Take” to record one.</Text>
+                    ) : (
+                      [...(doses[x.id] ?? [])].sort((a, b) => (a < b ? 1 : -1)).slice(0, 12).map((t, idx) => (
+                        <View key={idx} style={s.doseRow}>
+                          <Ionicons name="checkmark-circle" size={16} color={colors.success}/>
+                          <Text style={s.doseText}>{fmtDose(t)}</Text>
+                        </View>
+                      ))
+                    )}
+                  </View>
+                )}
                 {editing?.id === x.id && form(true)}
               </View>
             );
@@ -202,6 +218,9 @@ const s = StyleSheet.create({
   stepBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: colors.border, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
   stepValue: { fontSize: 16, fontWeight: '800', color: colors.text, minWidth: 34, textAlign: 'center' },
   restock: { marginLeft: 'auto', paddingHorizontal: 12, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.forestSoft },
+  history: { gap: 6, paddingVertical: 10 },
+  doseRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  doseText: { fontSize: 13, color: colors.text },
   error: { color: '#A33', fontSize: 13 },
   action: { color: colors.forest, fontWeight: '700' },
   save: { minHeight: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.forest, borderRadius: radius.sm },

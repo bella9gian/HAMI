@@ -143,7 +143,7 @@ export default function Shopping() {
   return (
     <Screen>
       <View style={s.head}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Shopping</Text>
         <View style={{ width: 25 }}/>
       </View>

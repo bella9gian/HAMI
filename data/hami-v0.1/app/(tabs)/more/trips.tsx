@@ -151,7 +151,7 @@ export default function Trips() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Trips</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add trip"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>
