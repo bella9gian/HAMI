@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Screen } from '@/components/Screen';
 import { DateField } from '@/components/DateField';
@@ -14,6 +14,7 @@ type Status = 'active' | 'completed' | 'all';
 
 export default function TodoScreen() {
   const params = useLocalSearchParams<{ new?: string }>();
+  const router = useRouter();
   const [todos, setTodos] = useState<Todo[]>([]);
   const [members, setMembers] = useState<FamilyMember[]>([]);
   const [householdId, setHouseholdId] = useState<string | null>(null);
@@ -128,6 +129,12 @@ export default function TodoScreen() {
           {saving ? <ActivityIndicator color="#fff"/> : <Text style={s.white}>{isEdit ? 'Save changes' : 'Create task'}</Text>}
         </Pressable>
         {isEdit && (
+          <Pressable onPress={() => router.push({ pathname: '/(tabs)/calendar', params: { new: '1', title: title.trim(), ...(dueDate ? { date: dueDate } : {}) } })} style={s.convert}>
+            <Ionicons name="calendar-outline" size={16} color={colors.forest}/>
+            <Text style={s.convertText}>Turn into appointment</Text>
+          </Pressable>
+        )}
+        {isEdit && (
           <Pressable onPress={remove} style={s.delete}>
             <Text style={s.deleteText}>{confirmDelete ? 'Tap again to delete permanently' : 'Delete task'}</Text>
           </Pressable>
@@ -208,6 +215,8 @@ const s = StyleSheet.create({
   assigneeText: { color: colors.text, fontWeight: '600' },
   save: { minHeight: 46, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.forest, borderRadius: radius.sm },
   white: { color: '#fff', fontWeight: '700' },
+  convert: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
+  convertText: { color: colors.forest, fontWeight: '700' },
   delete: { alignItems: 'center', padding: 7 },
   deleteText: { color: '#A33', fontWeight: '700' },
   message: { gap: 7 },

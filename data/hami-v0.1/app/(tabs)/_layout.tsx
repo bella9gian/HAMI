@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
 import { ColorValue, StyleSheet, View } from 'react-native';
 
 import { colors } from '@/constants/theme';
@@ -39,6 +39,7 @@ export default function TabsLayout() {
   // The tab bar belongs to the signed-in app — keep it hidden on the sign-in
   // screen so no icons show during login.
   const [authed, setAuthed] = useState(false);
+  const router = useRouter();
   useEffect(() => {
     void supabase.auth.getSession().then(({ data: { session } }) => setAuthed(!!session?.user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setAuthed(!!session?.user));
@@ -60,7 +61,7 @@ export default function TabsLayout() {
     <Tabs.Screen name="menu"/>
     <Tabs.Screen name="todo"/>
     <Tabs.Screen name="calendar"/>
-    <Tabs.Screen name="more"/>
+    <Tabs.Screen name="more" listeners={{ tabPress: (e) => { e.preventDefault(); router.navigate('/more'); } }}/>
     {/* Chores stays reachable (from the More grid) but is off the tab bar. */}
     <Tabs.Screen name="chores" options={{ href: null }}/>
   </Tabs>;

@@ -53,7 +53,7 @@ export default function Photos() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Photos</Text>
         <Pressable onPress={addPhoto} disabled={uploading} accessibilityLabel="Add photo">
           {uploading ? <ActivityIndicator color={colors.forest}/> : <Ionicons name="add" size={26} color={colors.forest}/>}

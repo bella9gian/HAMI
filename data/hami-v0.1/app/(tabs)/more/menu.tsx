@@ -185,7 +185,7 @@ export default function Menu() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Menu</Text>
         <Pressable onPress={() => setSelectedDate(toDateKey())}><Text style={s.todayBtn}>Today</Text></Pressable>
       </View>

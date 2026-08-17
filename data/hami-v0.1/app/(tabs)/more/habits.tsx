@@ -14,7 +14,7 @@ const dnum = (k: string) => new Date(`${k}T12:00:00`).getDate();
 import { loadHouseholdContext } from '@/lib/members';
 import { addHabit, bestStreak, currentStreak, deleteHabit, Frequency, Habit, loadHabitLogs, loadHabits, setHabitDone, updateHabit, weekDoneCount, weeklyStreak } from '@/lib/habits';
 
-const since = () => { const d = new Date(); d.setDate(d.getDate() - 90); return toDateKey(d); };
+const since = () => { const d = new Date(); d.setDate(d.getDate() - 400); return toDateKey(d); };
 
 export default function Habits() {
   const router = useRouter();
@@ -134,7 +134,7 @@ export default function Habits() {
   return (
     <Screen>
       <View style={s.headBar}>
-        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.back()}/>
+        <Ionicons name="chevron-back" size={25} color={colors.forest} onPress={() => router.navigate('/')}/>
         <Text style={s.title}>Habits</Text>
         <Pressable onPress={openNew} accessibilityLabel="Add habit"><Ionicons name="add" size={26} color={colors.forest}/></Pressable>
       </View>
@@ -168,6 +168,8 @@ export default function Habits() {
               const best = bestStreak(logs[h.id]);
               meta = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}${best > streak ? ` · best ${best}` : ''}` : (best > 0 ? `No streak now · best ${best}` : 'No streak yet');
             }
+            const total = logs[h.id]?.size ?? 0;
+            if (!notStarted && !ended && total > 0) meta += ` · ${total}✓ total`;
             if (!notStarted && !ended && h.endDate) meta += ` · ends ${fmtDate(h.endDate)}`;
             return (
               <View key={h.id}>

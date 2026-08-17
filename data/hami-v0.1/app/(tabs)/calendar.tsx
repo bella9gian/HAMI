@@ -131,10 +131,17 @@ export default function Calendar() {
   }
   useEffect(() => { if (householdId && viewMode === 'week') void refreshRange(); }, [householdId, viewMode, centerWeek]);
 
-  const params = useLocalSearchParams<{ new?: string }>();
+  const params = useLocalSearchParams<{ new?: string; title?: string; date?: string }>();
   useEffect(() => { void loadHousehold(); }, []);
   useEffect(() => { if (householdId) void loadEvents(); }, [selectedDate, householdId]);
-  useEffect(() => { if (params.new === '1') { resetForm(); setShowForm(true); } }, [params.new]);
+  useEffect(() => {
+    if (params.new === '1') {
+      resetForm();
+      if (params.title) setTitle(String(params.title));
+      if (params.date) { setDate(String(params.date)); setSelectedDate(String(params.date)); }
+      setShowForm(true);
+    }
+  }, [params.new, params.title, params.date]);
 
   async function loadHousehold() {
     setLoading(true); setError('');
