@@ -40,7 +40,6 @@ export default function Today() {
   const [todayTodos, setTodayTodos] = useState<Todo[]>([]);
   const [dueChores, setDueChores] = useState<Chore[]>([]);
   const [todayMenu, setTodayMenu] = useState<MenuEntry[]>([]);
-  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const [calendarError, setCalendarError] = useState('');
   const [currentMember, setCurrentMember] =
     useState<FamilyMember | null>(null);
@@ -143,18 +142,6 @@ export default function Today() {
       }
 
       setCurrentMember(me);
-
-      // Names for resolving who prepares each meal.
-      const { data: fam } = await supabase
-        .from('family_members')
-        .select('id, first_name, display_name')
-        .eq('household_id', me.household_id)
-        .eq('is_active', true);
-      const names: Record<string, string> = {};
-      for (const m of (fam ?? []) as Array<{ id: string; first_name: string | null; display_name: string }>) {
-        names[m.id] = m.first_name || m.display_name;
-      }
-      setMemberNames(names);
 
       try {
         setCalendarError('');
@@ -328,7 +315,7 @@ export default function Today() {
           {todayMenu.length === 0 ? <Text style={s.meta}>No meals planned today.</Text> : [...todayMenu].sort((a, b) => MEALS.indexOf(a.meal) - MEALS.indexOf(b.meal)).map((entry, index) => (
             <View key={entry.id} style={[s.todoRow, index < todayMenu.length - 1 && s.sep]}>
               <Ionicons name="restaurant-outline" size={20} color={colors.clay}/>
-              <View style={{ flex: 1 }}><Text style={s.eventTitle}>{menuLabel(entry)}</Text><Text style={s.meta}>{entry.meal.charAt(0).toUpperCase() + entry.meal.slice(1)}{entry.cookId && memberNames[entry.cookId] ? ` · ${memberNames[entry.cookId]} cooks` : ''}</Text></View>
+              <View style={{ flex: 1 }}><Text style={s.eventTitle}>{menuLabel(entry)}</Text><Text style={s.meta}>{entry.meal.charAt(0).toUpperCase() + entry.meal.slice(1)}{entry.cookName ? ` · ${entry.cookName} cooks` : ''}</Text></View>
             </View>
           ))}
         </Card>
