@@ -10,6 +10,7 @@ export type MenuEntry = {
   recipeId: string | null;
   recipeName: string | null;
   title: string | null;
+  cookId: string | null;
 };
 
 type Row = {
@@ -18,14 +19,15 @@ type Row = {
   meal: Meal;
   recipe_id: string | null;
   title: string | null;
+  cook_id: string | null;
   recipes: { name: string } | { name: string }[] | null;
 };
 
-const select = 'id, on_date, meal, recipe_id, title, recipes ( name )';
+const select = 'id, on_date, meal, recipe_id, title, cook_id, recipes ( name )';
 
 function map(row: Row): MenuEntry {
   const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
-  return { id: row.id, onDate: row.on_date, meal: row.meal, recipeId: row.recipe_id, recipeName: recipe?.name ?? null, title: row.title };
+  return { id: row.id, onDate: row.on_date, meal: row.meal, recipeId: row.recipe_id, recipeName: recipe?.name ?? null, title: row.title, cookId: row.cook_id };
 }
 
 /** A menu entry's display label — the linked recipe name, or its free-text title. */
@@ -46,6 +48,7 @@ export async function addMenuEntry(input: {
   meal: Meal;
   recipeId?: string | null;
   title?: string;
+  cookId?: string | null;
 }): Promise<void> {
   const recipeId = input.recipeId || null;
   const title = input.title?.trim() || null;
@@ -57,6 +60,7 @@ export async function addMenuEntry(input: {
     meal: input.meal,
     recipe_id: recipeId,
     title: recipeId ? null : title,
+    cook_id: input.cookId || null,
   });
   if (error) throw error;
 }
@@ -69,11 +73,11 @@ export async function loadMenuForRange(startKey: string, endKey: string): Promis
   return out;
 }
 
-export async function updateMenuEntry(id: string, input: { meal: Meal; recipeId?: string | null; title?: string }): Promise<void> {
+export async function updateMenuEntry(id: string, input: { meal: Meal; recipeId?: string | null; title?: string; cookId?: string | null }): Promise<void> {
   const recipeId = input.recipeId || null;
   const title = input.title?.trim() || null;
   if (!recipeId && !title) throw new Error('Pick a recipe or type what you are having.');
-  const { error } = await supabase.from('menu_entries').update({ meal: input.meal, recipe_id: recipeId, title: recipeId ? null : title }).eq('id', id);
+  const { error } = await supabase.from('menu_entries').update({ meal: input.meal, recipe_id: recipeId, title: recipeId ? null : title, cook_id: input.cookId || null }).eq('id', id);
   if (error) throw error;
 }
 
@@ -90,7 +94,7 @@ const shiftKey = (key: string, delta: number) => {
 };
 
 function rowFor(entry: MenuEntry, householdId: string, createdBy: string, dateKey: string) {
-  return { household_id: householdId, created_by: createdBy, on_date: dateKey, meal: entry.meal, recipe_id: entry.recipeId, title: entry.recipeId ? null : entry.title };
+  return { household_id: householdId, created_by: createdBy, on_date: dateKey, meal: entry.meal, recipe_id: entry.recipeId, title: entry.recipeId ? null : entry.title, cook_id: entry.cookId };
 }
 
 /** Duplicate a menu entry onto another day. */

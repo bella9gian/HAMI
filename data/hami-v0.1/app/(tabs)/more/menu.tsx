@@ -34,6 +34,7 @@ export default function Menu() {
   const router = useRouter();
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const [currentMemberId, setCurrentMemberId] = useState<string | null>(null);
+  const [members, setMembers] = useState<{ id: string; first_name: string | null; display_name: string }[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('day');
   const [selectedDate, setSelectedDate] = useState(toDateKey());
   const [entriesByDate, setEntriesByDate] = useState<Record<string, MenuEntry[]>>({});
@@ -46,11 +47,13 @@ export default function Menu() {
   const [addMeal, setAddMeal] = useState<Meal>('dinner');
   const [addRecipeId, setAddRecipeId] = useState('');
   const [addTitle, setAddTitle] = useState('');
+  const [addCookId, setAddCookId] = useState('');
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [eMeal, setEMeal] = useState<Meal>('dinner');
   const [eRecipeId, setERecipeId] = useState('');
   const [eTitle, setETitle] = useState('');
+  const [eCookId, setECookId] = useState('');
   const [copyDate, setCopyDate] = useState('');
   const [repeatFreq, setRepeatFreq] = useState<'daily' | 'weekly'>('weekly');
   const [repeatUntil, setRepeatUntil] = useState('');
@@ -64,6 +67,7 @@ export default function Menu() {
       const ctx = await loadHouseholdContext();
       setHouseholdId(ctx.householdId);
       setCurrentMemberId(ctx.currentMember.id);
+      setMembers(ctx.members.map((m) => ({ id: m.id, first_name: m.first_name, display_name: m.display_name })));
       setRecipes(await loadRecipes());
       const [a, b] = rangeFor(viewMode, selectedDate);
       setEntriesByDate(await loadMenuForRange(a, b));
@@ -88,19 +92,19 @@ export default function Menu() {
     if (!householdId || !currentMemberId) return;
     if (!addRecipeId && !addTitle.trim()) { setError('Pick a recipe or type what you are having.'); return; }
     setSaving(true); setError('');
-    try { await addMenuEntry({ householdId, createdBy: currentMemberId, onDate: selectedDate, meal: addMeal, recipeId: addRecipeId || null, title: addTitle }); setAddRecipeId(''); setAddTitle(''); await refresh(); }
+    try { await addMenuEntry({ householdId, createdBy: currentMemberId, onDate: selectedDate, meal: addMeal, recipeId: addRecipeId || null, title: addTitle, cookId: addCookId || null }); setAddRecipeId(''); setAddTitle(''); setAddCookId(''); await refresh(); }
     catch (e: any) { setError(e?.message ?? 'Unable to add this meal.'); }
     finally { setSaving(false); }
   }
 
   function startEdit(entry: MenuEntry) {
     if (editingId === entry.id) { setEditingId(null); return; }
-    setEMeal(entry.meal); setERecipeId(entry.recipeId ?? ''); setETitle(entry.recipeId ? '' : (entry.title ?? ''));
+    setEMeal(entry.meal); setERecipeId(entry.recipeId ?? ''); setETitle(entry.recipeId ? '' : (entry.title ?? '')); setECookId(entry.cookId ?? '');
     setCopyDate(shiftKey(entry.onDate, 1)); setRepeatFreq('weekly'); setRepeatUntil(''); setNote(''); setError(''); setEditingId(entry.id);
   }
   async function saveEdit(id: string) {
     setSaving(true); setError('');
-    try { await updateMenuEntry(id, { meal: eMeal, recipeId: eRecipeId || null, title: eTitle }); setEditingId(null); await refresh(); }
+    try { await updateMenuEntry(id, { meal: eMeal, recipeId: eRecipeId || null, title: eTitle, cookId: eCookId || null }); setEditingId(null); await refresh(); }
     catch (e: any) { setError(e?.message ?? 'Unable to save this meal.'); }
     finally { setSaving(false); }
   }
@@ -129,6 +133,18 @@ export default function Menu() {
     return map;
   }, [entriesByDate, selectedDate]);
 
+  const cookName = (id: string | null) => { if (!id) return null; const m = members.find((x) => x.id === id); return m ? (m.first_name || m.display_name) : null; };
+
+  function cookPicker(selected: string, onSelect: (id: string) => void) {
+    if (members.length === 0) return null;
+    return (
+      <>
+        <Text style={s.label}>Prepared by</Text>
+        <View style={s.recipeChips}>{members.map((m) => <Pressable key={m.id} onPress={() => onSelect(selected === m.id ? '' : m.id)} style={[s.recipeChip, selected === m.id && s.recipeChipOn]}><Text style={[s.recipeChipText, selected === m.id && s.white]}>{m.first_name || m.display_name}</Text></Pressable>)}</View>
+      </>
+    );
+  }
+
   function recipePicker(selected: string, onSelect: (id: string) => void) {
     if (recipes.length === 0) return <Pressable onPress={() => router.push('/more/recipes')}><Text style={s.link}>+ Add recipes to pick from</Text></Pressable>;
     return (
@@ -145,6 +161,7 @@ export default function Menu() {
         <View style={s.mealChips}>{MEALS.map((m) => <Pressable key={m} onPress={() => setEMeal(m)} style={[s.mealChip, eMeal === m && s.mealChipOn]}><Text style={[s.mealChipText, eMeal === m && s.white]}>{mealLabel(m)}</Text></Pressable>)}</View>
         {recipePicker(eRecipeId, (id) => { setERecipeId(id); if (id) setETitle(''); })}
         <TextInput value={eTitle} onChangeText={(t) => { setETitle(t); if (t) setERecipeId(''); }} editable={!eRecipeId} placeholder={eRecipeId ? 'Using selected recipe' : 'or type what you are having…'} placeholderTextColor={colors.muted} style={[s.input, !!eRecipeId && s.inputDisabled]}/>
+        {cookPicker(eCookId, setECookId)}
         <Pressable disabled={saving} onPress={() => saveEdit(entry.id)} style={s.save}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.white}>Save changes</Text>}</Pressable>
         <View style={s.divider}/>
         <Text style={s.label}>Copy to another day</Text>
@@ -175,7 +192,7 @@ export default function Menu() {
           <Card style={s.thin}>{list.map((e, i) => (
             <View key={e.id} style={[s.overRow, i < list.length - 1 && s.sep]}>
               <Text style={s.overMeal}>{mealLabel(e.meal)}</Text>
-              <Text style={s.overName}>{menuLabel(e)}</Text>
+              <Text style={s.overName}>{menuLabel(e)}{cookName(e.cookId) ? ` · ${cookName(e.cookId)}` : ''}</Text>
             </View>
           ))}</Card>
         )}
@@ -208,6 +225,7 @@ export default function Menu() {
           <View style={s.mealChips}>{MEALS.map((m) => <Pressable key={m} onPress={() => setAddMeal(m)} style={[s.mealChip, addMeal === m && s.mealChipOn]}><Text style={[s.mealChipText, addMeal === m && s.white]}>{mealLabel(m)}</Text></Pressable>)}</View>
           {recipePicker(addRecipeId, (id) => { setAddRecipeId(id); if (id) setAddTitle(''); })}
           <TextInput value={addTitle} onChangeText={(t) => { setAddTitle(t); if (t) setAddRecipeId(''); }} editable={!addRecipeId} placeholder={addRecipeId ? 'Using selected recipe' : 'or type what you are having…'} placeholderTextColor={colors.muted} style={[s.input, !!addRecipeId && s.inputDisabled]}/>
+          {cookPicker(addCookId, setAddCookId)}
           {!editingId && !!error && <Text style={s.error}>{error}</Text>}
           <Pressable disabled={saving} onPress={add} style={s.save}>{saving ? <ActivityIndicator color="#fff"/> : <Text style={s.white}>Add to {mealLabel(addMeal)}</Text>}</Pressable>
         </Card>
@@ -225,6 +243,7 @@ export default function Menu() {
                   <Pressable onPress={() => startEdit(e)} style={[s.row, (i < byMealToday[m].length - 1 || editingId === e.id) && s.sep]}>
                     <Ionicons name={e.recipeId ? 'restaurant-outline' : 'fast-food-outline'} size={18} color={colors.clay}/>
                     <Text style={s.name}>{menuLabel(e)}</Text>
+                    {cookName(e.cookId) && <View style={s.cookTag}><Ionicons name="person" size={11} color={colors.forest}/><Text style={s.cookText}>{cookName(e.cookId)}</Text></View>}
                     <Ionicons name={editingId === e.id ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted}/>
                   </Pressable>
                   {editingId === e.id && editor(e)}
@@ -269,6 +288,8 @@ const s = StyleSheet.create({
   recipeChipOn: { backgroundColor: colors.forest, borderColor: colors.forest },
   recipeChipText: { color: colors.text, fontWeight: '600', fontSize: 13 },
   white: { color: '#fff', fontWeight: '700' },
+  cookTag: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.forestSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: radius.pill },
+  cookText: { color: colors.forest, fontWeight: '700', fontSize: 11 },
   input: { borderWidth: 1, borderColor: colors.border, borderRadius: radius.sm, padding: 12, color: colors.text, backgroundColor: '#fff', minHeight: 44 },
   inputDisabled: { backgroundColor: colors.surfaceMuted, color: colors.muted },
   error: { color: '#A33', fontSize: 13 },
