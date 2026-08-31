@@ -133,8 +133,6 @@ export default function Menu() {
     return map;
   }, [entriesByDate, selectedDate]);
 
-  const cookName = (id: string | null) => { if (!id) return null; const m = members.find((x) => x.id === id); return m ? (m.first_name || m.display_name) : null; };
-
   function cookPicker(selected: string, onSelect: (id: string) => void) {
     if (members.length === 0) return null;
     return (
@@ -192,7 +190,7 @@ export default function Menu() {
           <Card style={s.thin}>{list.map((e, i) => (
             <View key={e.id} style={[s.overRow, i < list.length - 1 && s.sep]}>
               <Text style={s.overMeal}>{mealLabel(e.meal)}</Text>
-              <Text style={s.overName}>{menuLabel(e)}{cookName(e.cookId) ? ` · ${cookName(e.cookId)}` : ''}</Text>
+              <Text style={s.overName}>{menuLabel(e)}{e.cookName ? ` · ${e.cookName}` : ''}</Text>
             </View>
           ))}</Card>
         )}
@@ -243,7 +241,7 @@ export default function Menu() {
                   <Pressable onPress={() => startEdit(e)} style={[s.row, (i < byMealToday[m].length - 1 || editingId === e.id) && s.sep]}>
                     <Ionicons name={e.recipeId ? 'restaurant-outline' : 'fast-food-outline'} size={18} color={colors.clay}/>
                     <Text style={s.name}>{menuLabel(e)}</Text>
-                    {cookName(e.cookId) && <View style={s.cookTag}><Ionicons name="person" size={11} color={colors.forest}/><Text style={s.cookText}>{cookName(e.cookId)}</Text></View>}
+                    {e.cookName && <View style={s.cookTag}><Ionicons name="person" size={11} color={colors.forest}/><Text style={s.cookText}>{e.cookName}</Text></View>}
                     <Ionicons name={editingId === e.id ? 'chevron-up' : 'chevron-down'} size={18} color={colors.muted}/>
                   </Pressable>
                   {editingId === e.id && editor(e)}

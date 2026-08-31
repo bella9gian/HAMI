@@ -11,8 +11,10 @@ export type MenuEntry = {
   recipeName: string | null;
   title: string | null;
   cookId: string | null;
+  cookName: string | null;
 };
 
+type Person = { first_name: string | null; display_name: string };
 type Row = {
   id: string;
   on_date: string;
@@ -21,13 +23,15 @@ type Row = {
   title: string | null;
   cook_id: string | null;
   recipes: { name: string } | { name: string }[] | null;
+  cook: Person | Person[] | null;
 };
 
-const select = 'id, on_date, meal, recipe_id, title, cook_id, recipes ( name )';
+const select = 'id, on_date, meal, recipe_id, title, cook_id, recipes ( name ), cook:family_members!cook_id ( first_name, display_name )';
 
 function map(row: Row): MenuEntry {
   const recipe = Array.isArray(row.recipes) ? row.recipes[0] : row.recipes;
-  return { id: row.id, onDate: row.on_date, meal: row.meal, recipeId: row.recipe_id, recipeName: recipe?.name ?? null, title: row.title, cookId: row.cook_id };
+  const cook = Array.isArray(row.cook) ? row.cook[0] : row.cook;
+  return { id: row.id, onDate: row.on_date, meal: row.meal, recipeId: row.recipe_id, recipeName: recipe?.name ?? null, title: row.title, cookId: row.cook_id, cookName: cook ? (cook.first_name ?? cook.display_name) : null };
 }
 
 /** A menu entry's display label — the linked recipe name, or its free-text title. */
